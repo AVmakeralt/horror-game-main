@@ -9,7 +9,7 @@ import json
 import time
 import heapq
 from dataclasses import dataclass, field
-from typing import List, Dict, Tuple, Optional, Set, Any
+from typing import List, Dict, Tuple, Optional, Set, Any, Callable
 from enum import Enum
 from collections import deque
 import numpy as np
@@ -647,15 +647,15 @@ class SharedAttentionBuffer:
         self.max_entries = max_entries
         self.zone_subscriptions: Dict[int, Set[int]] = {}  # zone_id -> agent_ids
         self.agent_subscriptions: Dict[int, Set[int]] = {}  # agent_id -> zone_ids
-        self.callbacks: Dict[int, List[callable]] = {}  # agent_id -> list of callbacks
+        self.callbacks: Dict[int, List[Callable]] = {}  # agent_id -> list of callbacks
     
-    def register_callback(self, agent_id: int, callback: callable):
+    def register_callback(self, agent_id: int, callback: Callable):
         """Register a callback for an agent to be notified of new entries."""
         if agent_id not in self.callbacks:
             self.callbacks[agent_id] = []
         self.callbacks[agent_id].append(callback)
     
-    def unregister_callback(self, agent_id: int, callback: callable):
+    def unregister_callback(self, agent_id: int, callback: Callable):
         """Unregister a callback for an agent."""
         if agent_id in self.callbacks:
             if callback in self.callbacks[agent_id]:
@@ -696,7 +696,7 @@ class SharedAttentionBuffer:
         
         return relevant
     
-    def subscribe(self, agent_id: int, zone_id: int, callback: Optional[callable] = None):
+    def subscribe(self, agent_id: int, zone_id: int, callback: Optional[Callable] = None):
         """Agent subscribes to zone updates with optional callback."""
         if zone_id not in self.zone_subscriptions:
             self.zone_subscriptions[zone_id] = set()
@@ -1630,7 +1630,8 @@ class SwarmMCP:
         # Simplified: use ZONES dict if available
         if zone_id in ZONES:
             return (ZONES[zone_id].x, ZONES[zone_id].y)
-        return (15, 5)  # Default center
+        # For zones not in ZONES dict, estimate based on zone_id
+        return (10 + zone_id, 5)  # Simple linear fallback
     
     def _cleanup_blackboard(self) -> None:
         """Remove expired blackboard entries."""
@@ -2183,6 +2184,15 @@ class Gaslighter:
             for dx in range(-2, 3):
                 for dy in range(-2, 3):
                     tile_pos = (zone.x + dx, zone.y + dy)
+                    if (self.config.MIN_X <= tile_pos[0] <= self.config.MAX_X and
+                        self.config.MIN_Y <= tile_pos[1] <= self.config.MAX_Y):
+                        self.deception_map[tile_pos] = random.uniform(0.3, 0.8)
+        else:
+            # Fallback for zones not in ZONES dict
+            zone_x, zone_y = (10 + zone_id, 5)
+            for dx in range(-2, 3):
+                for dy in range(-2, 3):
+                    tile_pos = (zone_x + dx, zone_y + dy)
                     if (self.config.MIN_X <= tile_pos[0] <= self.config.MAX_X and
                         self.config.MIN_Y <= tile_pos[1] <= self.config.MAX_Y):
                         self.deception_map[tile_pos] = random.uniform(0.3, 0.8)
@@ -3845,7 +3855,7 @@ class SwarmManager:
         
         self.stalkers = []
         for i, (zone_id, role) in enumerate(spawn_configs):
-            zone = ZONES[zone_id]
+            zone = ZONES.get(zone_id, Zone(zone_id, f"Zone {zone_id}", 10 + zone_id, 5))
             constraints = ROLE_CONSTRAINTS[role]
             
             stalker = Stalker(
@@ -4158,9 +4168,9 @@ class SwarmManager:
                 # Apply option parameters
                 if 'target_zone' in instr['parameters']:
                     zone_id = instr['parameters']['target_zone']
-                    if zone_id in ZONES:
-                        stalker.target_x = float(ZONES[zone_id].x)
-                        stalker.target_y = float(ZONES[zone_id].y)
+                    zone = ZONES.get(zone_id, Zone(zone_id, f"Zone {zone_id}", 10 + zone_id, 5))
+                    stalker.target_x = float(zone.x)
+                    stalker.target_y = float(zone.y)
                 
                 # Issue atomic command via SwarmMCP for zero-desync
                 command_name = instr['option']
