@@ -1,0 +1,88 @@
+{
+  "format": "playcanvas-asset-hashes",
+  "hash": "sha256",
+  "generatedFrom": "/workspace/horror-game",
+  "assetCount": 16,
+  "assets": [
+    {
+      "path": "Tileset_Large.png",
+      "sha256": "075bd1a6fb8d080a642807e70b5af7698b02b7ea786bf6b1bbb45a89584b77de",
+      "bytes": 13361
+    },
+    {
+      "path": "player - death.png",
+      "sha256": "187c894c9da31ad4a37137a0195bee743f379a74838dd2a89ae8b9955ce445a8",
+      "bytes": 878
+    },
+    {
+      "path": "player - idle.png",
+      "sha256": "5bc0e0f8bbaadfccdcd36e3ca30b7aba0e63139ffcbd98d410ab3fb59d64c376",
+      "bytes": 1534
+    },
+    {
+      "path": "player - sitting.png",
+      "sha256": "42e62ce882fa5da8b81ef58886558bcb262a1f5dfd629f98e411515f5470bf3d",
+      "bytes": 856
+    },
+    {
+      "path": "player - walk cycle.png",
+      "sha256": "9012d2400f07da867c06ce3fe1ea921845421d7502144b24c53a3de07cb5c41e",
+      "bytes": 2541
+    },
+    {
+      "path": "scared - scared.png",
+      "sha256": "8371aa4bc61f03d3389e0de4e00fe2d34a74fe027403f8715108e78a6eed0d0f",
+      "bytes": 505
+    },
+    {
+      "path": "src/anti-cheat.js",
+      "sha256": "80c8806ddfe6c9b67b74310b02f5db99646974d3485fddd377a02a28fef4ab90",
+      "bytes": 4700
+    },
+    {
+      "path": "src/enemy.js",
+      "sha256": "d41cb4f09f4f5af34072fe826b4706f48e7df4da98e153df0b39ccb61497463d",
+      "bytes": 195232
+    },
+    {
+      "path": "src/engine.js",
+      "sha256": "6a3b0d896587c31298f3d197eacd93fbd5217a318c4825be48e9bc7cb7a7b5a4",
+      "bytes": 101510
+    },
+    {
+      "path": "src/index.html",
+      "sha256": "192e757278d7d3d6b8c67d3c4e6c6caa97409f3b18150f5f14785e40e54a16ad",
+      "bytes": 964
+    },
+    {
+      "path": "src/main.js",
+      "sha256": "9f2ffe5f478db05272d45a684323ffd3d02fdad9938bfb82a434358fdff094df",
+      "bytes": 11983
+    },
+    {
+      "path": "src/player.js",
+      "sha256": "4e965f1c2d53e360bfb595c3b45851ba976e4aa9a3104adc597f6ea90aa671e0",
+      "bytes": 3419
+    },
+    {
+      "path": "src/stalker.js",
+      "sha256": "0378597e6c8e706d6a6db40424ad9008f0d40d53d3a9e76286aed2323cd3ea35",
+      "bytes": 216
+    },
+    {
+      "path": "src/sw.js",
+      "sha256": "32d3865276903cb508a27b6f100fd5a48de6b0c66698ee183cee2d0eac66e8c5",
+      "bytes": 1103
+    },
+    {
+      "path": "src/transform.js",
+      "sha256": "9924912ad2da8082dbad51cf95100ac5957776243942e8e7a55810f516a1e7d2",
+      "bytes": 2993
+    },
+    {
+      "path": "stalker.png",
+      "sha256": "7113e7ae92c1f80c87fc5adc970995aebd7d98cee0a3de138092c41148f105d6",
+      "bytes": 2507841
+    }
+  ]
+}
