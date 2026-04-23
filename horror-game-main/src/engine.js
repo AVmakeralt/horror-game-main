@@ -24,6 +24,7 @@ import {
   PLAYER_FEAR_FRAMES,
   PLAYER_FRAMES,
 } from "./number-grid-sprites.js";
+import { TileRenderer, LightingSystem, ParticleSystem, PALETTE } from "./art-system.js";
 
 const TILE = 64;
 const CHALLENGE_MODE = true;
@@ -144,6 +145,140 @@ const ZONES = [
     ai: { speed: 3, sightRange: 9, hearingRange: 8, sightCone: Math.PI / 4, catchRadius: 2, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 25, y: 1 }, { x: 13, y: 4 }, { x: 2, y: 7 }] },
     hazards: { flicker: true, migration: true, collapse: true, phantoms: true },
     entryText: "Almost out. It knows. There are two green doors.",
+  },
+  {
+    id: "greenhouse", name: "Greenhouse",
+    stalkerSpawn: { x: 26, y: 1 },
+    forcedCorruption: true,
+    ai: { speed: 2, sightRange: 7, hearingRange: 6, sightCone: Math.PI / 3.2, catchRadius: 1, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 22, y: 3 }, { x: 12, y: 6 }, { x: 3, y: 2 }] },
+    hazards: { flicker: true, migration: true, phantoms: true },
+    entryText: "The plants are moving. They weren't like this yesterday.",
+  },
+  {
+    id: "garage", name: "Garage",
+    stalkerSpawn: { x: 26, y: 1 },
+    ai: { speed: 2, sightRange: 6, hearingRange: 7, sightCone: Math.PI / 3, catchRadius: 1, predictive: true, hallucinationInterference: false, patrolNodes: [{ x: 24, y: 5 }, { x: 14, y: 2 }, { x: 4, y: 7 }] },
+    hazards: { flicker: true, collapse: true },
+    entryText: "The car won't start. It never will again.",
+  },
+  {
+    id: "winecellar", name: "Wine Cellar",
+    stalkerSpawn: { x: 26, y: 1 },
+    forcedCorruption: true,
+    ai: { speed: 2, sightRange: 8, hearingRange: 8, sightCone: Math.PI / 3.5, catchRadius: 2, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 23, y: 6 }, { x: 13, y: 3 }, { x: 2, y: 7 }] },
+    hazards: { flicker: true, lockDoors: true, phantoms: true },
+    entryText: "The bottles are empty. But they weren't before.",
+  },
+  {
+    id: "chapel", name: "Chapel",
+    stalkerSpawn: { x: 26, y: 1 },
+    ai: { speed: 1, sightRange: 5, hearingRange: 5, sightCone: Math.PI / 2.5, catchRadius: 1, predictive: false, hallucinationInterference: true, patrolNodes: [{ x: 22, y: 4 }, { x: 14, y: 7 }, { x: 4, y: 4 }] },
+    hazards: { flicker: true, phantoms: true },
+    entryText: "The candles burn without flame. Prayers go unanswered.",
+  },
+  {
+    id: "dungeon", name: "Dungeon",
+    stalkerSpawn: { x: 26, y: 1 },
+    forcedCorruption: true,
+    ai: { speed: 3, sightRange: 10, hearingRange: 10, sightCone: Math.PI / 4, catchRadius: 2, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 24, y: 7 }, { x: 16, y: 2 }, { x: 5, y: 7 }] },
+    hazards: { flicker: true, collapse: true, lockDoors: true, phantoms: true },
+    entryText: "Something was kept down here. It still is.",
+  },
+  {
+    id: "observatory", name: "Observatory",
+    stalkerSpawn: { x: 26, y: 1 },
+    ai: { speed: 2, sightRange: 9, hearingRange: 6, sightCone: Math.PI / 3, catchRadius: 1, predictive: true, hallucinationInterference: false, patrolNodes: [{ x: 21, y: 2 }, { x: 11, y: 5 }, { x: 3, y: 8 }] },
+    hazards: { flicker: true, migration: true },
+    entryText: "The stars are wrong tonight. They've always been wrong.",
+  },
+  {
+    id: "nursery", name: "Nursery",
+    stalkerSpawn: { x: 26, y: 1 },
+    ai: { speed: 2, sightRange: 7, hearingRange: 8, sightCone: Math.PI / 3.3, catchRadius: 1, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 23, y: 3 }, { x: 13, y: 6 }, { x: 4, y: 2 }] },
+    hazards: { flicker: true, phantoms: true },
+    entryText: "The crib rocks by itself. The baby hasn't cried in years.",
+  },
+  {
+    id: "ballroom", name: "Ballroom",
+    stalkerSpawn: { x: 26, y: 1 },
+    ai: { speed: 2, sightRange: 8, hearingRange: 7, sightCone: Math.PI / 3, catchRadius: 1, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 22, y: 5 }, { x: 14, y: 2 }, { x: 4, y: 7 }] },
+    hazards: { flicker: true, migration: true, phantoms: true },
+    entryText: "The music plays when no one is there. It never stops.",
+  },
+  {
+    id: "laboratory", name: "Laboratory",
+    stalkerSpawn: { x: 26, y: 1 },
+    forcedCorruption: true,
+    ai: { speed: 3, sightRange: 9, hearingRange: 9, sightCone: Math.PI / 3.5, catchRadius: 2, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 24, y: 4 }, { x: 15, y: 7 }, { x: 5, y: 3 }] },
+    hazards: { flicker: true, collapse: true, lockDoors: true },
+    entryText: "The experiments got out. They're still getting out.",
+  },
+  {
+    id: "catacombs", name: "Catacombs",
+    stalkerSpawn: { x: 26, y: 1 },
+    forcedCorruption: true,
+    ai: { speed: 3, sightRange: 10, hearingRange: 10, sightCone: Math.PI / 4, catchRadius: 2, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 23, y: 6 }, { x: 14, y: 2 }, { x: 3, y: 7 }] },
+    hazards: { flicker: true, collapse: true, phantoms: true },
+    entryText: "The dead don't stay down here. They walk upstairs.",
+  },
+  {
+    id: "clocktower", name: "Clock Tower",
+    stalkerSpawn: { x: 26, y: 1 },
+    ai: { speed: 2, sightRange: 8, hearingRange: 7, sightCone: Math.PI / 3.2, catchRadius: 1, predictive: true, hallucinationInterference: false, patrolNodes: [{ x: 21, y: 3 }, { x: 12, y: 6 }, { x: 4, y: 2 }] },
+    hazards: { flicker: true, migration: true },
+    entryText: "Time moves wrong here. Sometimes it goes backwards.",
+  },
+  {
+    id: "fountainroom", name: "Fountain Room",
+    stalkerSpawn: { x: 26, y: 1 },
+    ai: { speed: 2, sightRange: 7, hearingRange: 8, sightCone: Math.PI / 3.3, catchRadius: 1, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 22, y: 4 }, { x: 13, y: 7 }, { x: 5, y: 3 }] },
+    hazards: { flicker: true, phantoms: true },
+    entryText: "The water flows uphill. Don't drink from it.",
+  },
+  {
+    id: "armory", name: "Armory",
+    stalkerSpawn: { x: 26, y: 1 },
+    ai: { speed: 2, sightRange: 6, hearingRange: 6, sightCone: Math.PI / 3, catchRadius: 1, predictive: true, hallucinationInterference: false, patrolNodes: [{ x: 24, y: 5 }, { x: 15, y: 2 }, { x: 4, y: 7 }] },
+    hazards: { flicker: true, lockDoors: true },
+    entryText: "The weapons are rusted through. But they still work.",
+  },
+  {
+    id: "greenhouse2", name: "Overgrown Garden",
+    stalkerSpawn: { x: 26, y: 1 },
+    forcedCorruption: true,
+    ai: { speed: 3, sightRange: 8, hearingRange: 7, sightCone: Math.PI / 3.5, catchRadius: 2, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 23, y: 4 }, { x: 14, y: 7 }, { x: 5, y: 2 }] },
+    hazards: { flicker: true, migration: true, phantoms: true },
+    entryText: "The vines grab at your ankles. They're hungry.",
+  },
+  {
+    id: "mirrorhall", name: "Hall of Mirrors",
+    stalkerSpawn: { x: 26, y: 1 },
+    ai: { speed: 2, sightRange: 9, hearingRange: 6, sightCone: Math.PI / 3, catchRadius: 1, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 22, y: 5 }, { x: 13, y: 2 }, { x: 4, y: 7 }] },
+    hazards: { flicker: true, phantoms: true },
+    entryText: "Every reflection shows something different. None are you.",
+  },
+  {
+    id: "icecave", name: "Ice Cave",
+    stalkerSpawn: { x: 26, y: 1 },
+    ai: { speed: 2, sightRange: 7, hearingRange: 8, sightCone: Math.PI / 3.4, catchRadius: 1, predictive: true, hallucinationInterference: false, patrolNodes: [{ x: 21, y: 3 }, { x: 12, y: 6 }, { x: 4, y: 2 }] },
+    hazards: { flicker: true, collapse: true },
+    entryText: "The ice cracks underfoot. Something is trapped inside.",
+  },
+  {
+    id: "lava", name: "Research Chamber",
+    stalkerSpawn: { x: 26, y: 1 },
+    forcedCorruption: true,
+    ai: { speed: 3, sightRange: 10, hearingRange: 10, sightCone: Math.PI / 4, catchRadius: 2, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 24, y: 6 }, { x: 15, y: 3 }, { x: 5, y: 7 }] },
+    hazards: { flicker: true, collapse: true, lockDoors: true, phantoms: true },
+    entryText: "The experiments continue. The equipment hums with purpose.",
+  },
+  {
+    id: "void", name: "The Void",
+    stalkerSpawn: { x: 26, y: 1 },
+    forcedCorruption: true,
+    ai: { speed: 4, sightRange: 12, hearingRange: 12, sightCone: Math.PI / 3, catchRadius: 3, predictive: true, hallucinationInterference: true, patrolNodes: [{ x: 25, y: 4 }, { x: 14, y: 7 }, { x: 3, y: 3 }] },
+    hazards: { flicker: true, migration: true, collapse: true, lockDoors: true, phantoms: true },
+    entryText: "There is nothing here. And that's the problem.",
   },
 ];
 
@@ -479,6 +614,370 @@ function buildZoneMap(zoneIndex) {
       break;
     }
 
+    // ── ZONE 12: Greenhouse ─────────────────────────────────────────────────
+    // Plant maze with looping mirrors
+    case 12: {
+      carve(1, 1, 26, 8);
+      // Plant islands forming maze
+      for (let x = 5; x <= 7;  x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 12; x <= 14; x++) for (let y = 1; y <= 4; y++) set(x, y, 1);
+      for (let x = 18; x <= 20; x++) for (let y = 5; y <= 7; y++) set(x, y, 1);
+      // Narrow passages
+      set(6, 4, 0); set(13, 3, 0); set(19, 6, 0);
+      obj(2, 1, 12);
+      obj(3, 3, 2);   obj(22, 5, 2);  obj(10, 7, 2);
+      obj(5, 8, 17);  obj(15, 2, 17);
+      obj(8, 5, 11);  // looping mirror
+      obj(21, 3, 11); // looping mirror
+      obj(12, 8, 20); // vent
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 13: Garage ─────────────────────────────────────────────────────
+    // Large open space with car obstacles
+    case 13: {
+      carve(1, 1, 26, 8);
+      // Car obstacle (large block)
+      for (let x = 10; x <= 16; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      // Shelving units
+      for (let x = 3; x <= 5; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 22; x <= 24; x++) for (let y = 1; y <= 7; y++) set(x, y, 1);
+      obj(2, 1, 12);
+      obj(6, 4, 2);   obj(18, 4, 2);  obj(25, 3, 2);
+      obj(8, 1, 15);  obj(20, 8, 15);
+      obj(13, 4, 6);  // moved furniture (car)
+      obj(7, 7, 17);  obj(21, 2, 17);
+      obj(15, 8, 22); // cracked floor
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 14: Wine Cellar ────────────────────────────────────────────────
+    // Grid of wine racks with secret passages
+    case 14: {
+      carve(1, 1, 26, 8);
+      // Wine rack grid
+      for (let x = 4; x <= 24; x += 4) {
+        for (let y = 2; y <= 7; y += 2) {
+          for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 1; dy++) set(x + dx, y + dy, 1);
+        }
+      }
+      // Secret passages
+      carve(6, 1, 6, 8); carve(14, 1, 14, 8); carve(22, 1, 22, 8);
+      obj(2, 1, 12);
+      obj(3, 4, 2);   obj(18, 6, 2);  obj(25, 4, 2);
+      obj(5, 3, 15);  obj(15, 5, 15); obj(23, 2, 15);
+      obj(10, 8, 17); obj(20, 7, 17);
+      obj(12, 3, 19); // ritual circle
+      obj(8, 6, 23);  // medicine cabinet
+      set(26, 5, 5);
+      break;
+    }
+
+    // ── ZONE 15: Chapel ──────────────────────────────────────────────────────
+    // Religious space with pews and altar
+    case 15: {
+      carve(1, 1, 26, 8);
+      // Pew rows
+      for (let x = 5; x <= 10; x++) { set(x, 3, 1); set(x, 5, 1); set(x, 7, 1); }
+      for (let x = 17; x <= 22; x++) { set(x, 3, 1); set(x, 5, 1); set(x, 7, 1); }
+      // Altar platform
+      for (let x = 11; x <= 16; x++) for (let y = 1; y <= 2; y++) set(x, y, 1);
+      obj(2, 1, 12);
+      obj(3, 4, 2);   obj(24, 6, 2);  obj(13, 8, 2);
+      obj(7, 2, 17);  obj(20, 1, 17);
+      obj(14, 1, 19); // ritual circle (altar)
+      obj(13, 4, 10); // hallucination
+      obj(9, 6, 11);  // mirror (confessional)
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 16: Dungeon ────────────────────────────────────────────────────
+    // Torture chamber with cells
+    case 16: {
+      carve(1, 1, 26, 8);
+      // Cell blocks
+      for (let x = 6; x <= 9; x++) for (let y = 2; y <= 3; y++) set(x, y, 1);
+      for (let x = 6; x <= 9; x++) for (let y = 5; y <= 6; y++) set(x, y, 1);
+      for (let x = 18; x <= 21; x++) for (let y = 2; y <= 3; y++) set(x, y, 1);
+      for (let x = 18; x <= 21; x++) for (let y = 5; y <= 6; y++) set(x, y, 1);
+      // Cell doors
+      set(7, 4, 14); set(19, 4, 14);
+      obj(2, 1, 12);
+      obj(3, 7, 2);   obj(14, 4, 2);  obj(24, 7, 2);
+      obj(5, 3, 15);  obj(22, 5, 15);
+      obj(10, 2, 17); obj(16, 7, 17);
+      obj(13, 6, 13); obj(14, 6, 13); // tiny hazards
+      obj(8, 8, 18);  // acid pool
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 17: Observatory ────────────────────────────────────────────────
+    // Circular room with telescope
+    case 17: {
+      carve(1, 1, 26, 8);
+      // Central telescope platform
+      for (let x = 12; x <= 15; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      // Observation balcony
+      for (let x = 2; x <= 9; x++) set(x, 1, 1);
+      for (let x = 18; x <= 25; x++) set(x, 1, 1);
+      obj(2, 1, 12);
+      obj(4, 5, 2);   obj(22, 6, 2);  obj(13, 8, 2);
+      obj(6, 3, 17);  obj(20, 2, 17);
+      obj(14, 4, 21); // telescope (static TV)
+      obj(10, 7, 11); // mirror
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 18: Nursery ──────────────────────────────────────────────────────
+    // Creepy nursery with toys
+    case 18: {
+      carve(1, 1, 26, 8);
+      // Crib area
+      for (let x = 10; x <= 17; x++) for (let y = 1; y <= 2; y++) set(x, y, 1);
+      // Toy chest
+      for (let x = 5; x <= 7; x++) for (let y = 6; y <= 7; y++) set(x, y, 1);
+      // Rocking chair area
+      for (let x = 20; x <= 22; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      obj(2, 1, 12);
+      obj(3, 4, 2);   obj(18, 7, 2);  obj(24, 4, 2);
+      obj(8, 2, 15);  obj(23, 6, 15);
+      obj(14, 1, 17); obj(6, 8, 17);
+      obj(12, 4, 10); // hallucination
+      obj(21, 4, 11); // mirror
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 19: Ballroom ────────────────────────────────────────────────────
+    // Grand dance floor with chandeliers
+    case 19: {
+      carve(1, 1, 26, 8);
+      // Pillars
+      for (const [px, py] of [[7,3],[7,5],[14,4],[21,3],[21,5]]) set(px, py, 1);
+      // Stage area
+      for (let x = 2; x <= 5; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      // Balcony
+      for (let x = 22; x <= 25; x++) set(x, 1, 1);
+      obj(2, 1, 12);
+      obj(6, 4, 2);   obj(16, 6, 2);  obj(24, 5, 2);
+      obj(9, 2, 17);  obj(18, 7, 17);
+      obj(14, 3, 21); // chandelier (static TV)
+      obj(10, 8, 11); // mirror
+      obj(20, 2, 19); // ritual circle
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 20: Laboratory ─────────────────────────────────────────────────
+    // Science lab with experiments
+    case 20: {
+      carve(1, 1, 26, 8);
+      // Lab benches
+      for (let x = 6; x <= 10; x++) for (let y = 2; y <= 3; y++) set(x, y, 1);
+      for (let x = 17; x <= 21; x++) for (let y = 5; y <= 6; y++) set(x, y, 1);
+      // Containment chamber
+      for (let x = 12; x <= 15; x++) for (let y = 4; y <= 5; y++) set(x, y, 1);
+      obj(2, 1, 12);
+      obj(4, 5, 2);   obj(13, 7, 2);  obj(23, 3, 2);
+      obj(8, 4, 15);  obj(19, 2, 15);
+      obj(14, 5, 18); // acid pool (experiment)
+      obj(11, 2, 17); obj(20, 7, 17);
+      obj(6, 7, 22);  // cracked floor
+      obj(16, 3, 13); // tiny hazard
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 21: Catacombs ────────────────────────────────────────────────────
+    // Underground tunnels with tombs
+    case 21: {
+      carve(1, 1, 26, 8);
+      // Tomb walls
+      for (let x = 5; x <= 8; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 19; x <= 22; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      // Central passage
+      carve(10, 3, 17, 5);
+      // Side chambers
+      carve(2, 2, 4, 3); carve(23, 5, 25, 6);
+      obj(2, 1, 12);
+      obj(3, 7, 2);   obj(14, 4, 2);  obj(24, 2, 2);
+      obj(6, 3, 15);  obj(20, 4, 15);
+      obj(10, 2, 17); obj(16, 7, 17);
+      obj(13, 4, 19); // ritual circle
+      obj(8, 8, 11);  // mirror
+      obj(22, 8, 22); // cracked floor
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 22: Clock Tower ─────────────────────────────────────────────────
+    // Tower with gears and time anomalies
+    case 22: {
+      carve(1, 1, 26, 8);
+      // Gear structures
+      for (let x = 8; x <= 10; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 18; x <= 20; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      // Clock face
+      for (let x = 12; x <= 15; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      obj(2, 1, 12);
+      obj(4, 4, 2);   obj(14, 7, 2);  obj(23, 5, 2);
+      obj(6, 3, 17);  obj(21, 3, 17);
+      obj(14, 4, 21); // clock mechanism (static TV)
+      obj(10, 8, 11); // mirror (time reflection)
+      obj(16, 2, 20); // vent
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 23: Fountain Room ───────────────────────────────────────────────
+    // Central fountain with flowing water
+    case 23: {
+      carve(1, 1, 26, 8);
+      // Fountain base
+      for (let x = 11; x <= 16; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      // Water channels
+      carve(13, 1, 13, 2); carve(13, 6, 13, 8);
+      carve(10, 4, 10, 4); carve(17, 4, 17, 4);
+      // Decorative walls
+      for (let x = 4; x <= 7; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 20; x <= 23; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      obj(2, 1, 12);
+      obj(3, 4, 2);   obj(14, 7, 2);  obj(24, 4, 2);
+      obj(5, 3, 15);  obj(21, 4, 15);
+      obj(14, 4, 18); // fountain (acid pool trick)
+      obj(9, 2, 17);  obj(18, 7, 17);
+      obj(12, 8, 11); // mirror
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 24: Armory ──────────────────────────────────────────────────────
+    // Weapon storage with racks
+    case 24: {
+      carve(1, 1, 26, 8);
+      // Weapon racks
+      for (let x = 5; x <= 8; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 19; x <= 22; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      // Central display
+      for (let x = 12; x <= 15; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      obj(2, 1, 12);
+      obj(4, 4, 2);   obj(13, 7, 2);  obj(24, 4, 2);
+      obj(6, 4, 15);  obj(20, 4, 15);
+      obj(14, 4, 17); obj(10, 2, 17);
+      obj(8, 8, 22);  // cracked floor
+      obj(18, 1, 13); // tiny hazard
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 25: Overgrown Garden ─────────────────────────────────────────────
+    // Dense vegetation with hidden paths
+    case 25: {
+      carve(1, 1, 26, 8);
+      // Dense vegetation blocks
+      for (let x = 3; x <= 7; x++) for (let y = 2; y <= 7; y++) set(x, y, 1);
+      for (let x = 10; x <= 14; x++) for (let y = 1; y <= 4; y++) set(x, y, 1);
+      for (let x = 10; x <= 14; x++) for (let y = 6; y <= 8; y++) set(x, y, 1);
+      for (let x = 20; x <= 24; x++) for (let y = 2; y <= 7; y++) set(x, y, 1);
+      // Hidden paths
+      set(5, 5, 0); set(12, 5, 0); set(22, 4, 0);
+      obj(2, 1, 12);
+      obj(8, 4, 2);   obj(15, 5, 2);  obj(25, 5, 2);
+      obj(6, 2, 17);  obj(18, 3, 17);
+      obj(12, 2, 19); // ritual circle
+      obj(21, 7, 18); // acid pool
+      obj(9, 8, 11);  // mirror
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 26: Hall of Mirrors ─────────────────────────────────────────────
+    // Maze of mirrors with looping paths
+    case 26: {
+      carve(1, 1, 26, 8);
+      // Mirror walls
+      for (let x = 6; x <= 8; x++) for (let y = 2; y <= 6; y++) set(x, y, 11);
+      for (let x = 12; x <= 14; x++) for (let y = 1; y <= 3; y++) set(x, y, 11);
+      for (let x = 12; x <= 14; x++) for (let y = 5; y <= 7; y++) set(x, y, 11);
+      for (let x = 19; x <= 21; x++) for (let y = 2; y <= 6; y++) set(x, y, 11);
+      // Gaps
+      set(7, 4, 0); set(13, 4, 0); set(20, 4, 0);
+      obj(2, 1, 12);
+      obj(4, 4, 2);   obj(16, 4, 2);  obj(24, 4, 2);
+      obj(10, 2, 17); obj(18, 7, 17);
+      obj(5, 8, 11);  obj(23, 1, 11);
+      obj(15, 5, 10); // hallucination
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 27: Ice Cave ────────────────────────────────────────────────────
+    // Frozen cavern with slippery paths
+    case 27: {
+      carve(1, 1, 26, 8);
+      // Ice formations
+      for (let x = 4; x <= 8; x++) for (let y = 2; y <= 5; y++) set(x, y, 1);
+      for (let x = 15; x <= 19; x++) for (let y = 4; y <= 7; y++) set(x, y, 1);
+      // Cracked ice
+      for (const [cx, cy] of [[10,3],[11,4],[12,5],[13,6],[14,7]]) set(cx, cy, 22);
+      obj(2, 1, 12);
+      obj(3, 7, 2);   obj(14, 3, 2);  obj(23, 6, 2);
+      obj(6, 3, 15);  obj(17, 5, 15);
+      obj(10, 2, 17); obj(20, 8, 17);
+      obj(13, 4, 18); // acid pool (water)
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 28: Research Chamber ───────────────────────────────────────────────
+    // Lab-home hybrid with equipment and furniture
+    case 28: {
+      carve(1, 1, 26, 8);
+      // Lab equipment islands (instead of lava)
+      for (let x = 5; x <= 10; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      for (let x = 17; x <= 22; x++) for (let y = 4; y <= 6; y++) set(x, y, 1);
+      // Home furniture platforms
+      for (let x = 2; x <= 4; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 12; x <= 15; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      for (let x = 23; x <= 25; x++) for (let y = 2; y <= 7; y++) set(x, y, 1);
+      // Lab equipment (monitors, chemical stations)
+      obj(2, 1, 12);
+      obj(3, 4, 2);   obj(14, 4, 2);  obj(24, 5, 2);
+      obj(7, 4, 21);  obj(19, 5, 21); // monitors (static TV)
+      obj(11, 7, 15); obj(21, 8, 15);
+      obj(14, 4, 18); // chemical station (acid pool replaced with lab equipment)
+      obj(8, 2, 17); obj(20, 3, 17);
+      obj(6, 5, 23); // medicine cabinet
+      obj(16, 2, 19); // ritual circle (experiment setup)
+      set(26, 4, 5);
+      break;
+    }
+
+    // ── ZONE 29: The Void ─────────────────────────────────────────────────────
+    // Empty space with floating platforms
+    case 29: {
+      carve(1, 1, 26, 8);
+      // Floating platforms (isolated islands)
+      carve(2, 2, 4, 4); carve(2, 5, 4, 7);
+      carve(8, 1, 11, 3); carve(8, 5, 11, 7);
+      carve(16, 2, 19, 4); carve(16, 5, 19, 7);
+      carve(22, 1, 25, 3); carve(22, 5, 25, 7);
+      // Invisible bridges (corruption tiles as trick)
+      set(5, 4, 3); set(12, 4, 3); set(20, 4, 3);
+      obj(2, 1, 12);
+      obj(3, 3, 2);   obj(10, 4, 2);  obj(18, 6, 2); obj(24, 4, 2);
+      obj(6, 2, 10); obj(14, 2, 10); obj(22, 4, 10); // hallucinations
+      obj(9, 6, 11); obj(17, 3, 11); // mirrors
+      obj(13, 8, 19); // ritual circle
+      set(26, 4, 5);
+      break;
+    }
+
     default: {
       // Fallback — simple open room
       carve(1, 1, 26, 8);
@@ -518,6 +1017,427 @@ function buildZoneMap(zoneIndex) {
   return map;
 }
 
+// ── Map Creator ───────────────────────────────────────────────────────────────
+// Creates custom maps with lab-home hybrid aesthetic (no lava)
+export function createCustomMap(layout) {
+  const w = 28;
+  const h = 10;
+  const map = new Array(w * h).fill(1);
+  const set = (x, y, t) => { if (x >= 0 && y >= 0 && x < w && y < h) map[y * w + x] = t; };
+  const carve = (x0, y0, x1, y1) => {
+    for (let y = y0; y <= y1; y += 1) for (let x = x0; x <= x1; x += 1) set(x, y, 0);
+  };
+  
+  // Parse layout string (0=floor, 1=wall, 2=hide, 11=mirror, 15=drawer, 17=note, 18=acid, 19=ritual, 20=vent, 21=TV, 22=cracked, 23=cabinet)
+  const rows = layout.split('\n');
+  for (let y = 0; y < Math.min(rows.length, h); y++) {
+    const row = rows[y];
+    for (let x = 0; x < Math.min(row.length, w); x++) {
+      const char = row[x];
+      const tileMap = {
+        '0': 0, // floor
+        '1': 1, // wall
+        '2': 2, // hide spot
+        '3': 3, // corruption
+        '4': 4, // corruption
+        '5': 5, // exit
+        '6': 6, // moved furniture
+        '7': 7, // collapse
+        '8': 8, // block/tape
+        '9': 9, // locked
+        'a': 10, // hallucination
+        'b': 11, // mirror
+        'c': 12, // safe
+        'd': 13, // tiny hazard
+        'e': 14, // door
+        'f': 15, // drawer
+        'g': 16, // fake exit
+        'h': 17, // note
+        'i': 18, // acid (lab chemical)
+        'j': 19, // ritual circle
+        'k': 20, // vent
+        'l': 21, // static TV (monitor)
+        'm': 22, // cracked floor
+        'n': 23, // medicine cabinet
+        'o': 24, // key
+      };
+      if (tileMap[char] !== undefined) {
+        set(x, y, tileMap[char]);
+      }
+    }
+  }
+  
+  return map;
+}
+
+// ── Lab-Home Hybrid Room Templates ──────────────────────────────────────────
+export const LAB_HOME_TEMPLATES = {
+  livingLab: {
+    name: "Living Laboratory",
+    layout: `111111111111111111111111111111
+1c00000000000000000000000000001
+1f0000001100000000001100000000h1
+10000000101000000010100000000101
+10000000101000000010100000000101
+10000000000000000000000000000101
+1f0000001100000000001100000000h1
+10000000101000000010100000000101
+10000000101000000010100000000101
+1c00000000000000000000000000001
+111111111111111111111111111111`,
+    description: "Comfortable living space with embedded lab equipment"
+  },
+  kitchenLab: {
+    name: "Kitchen Lab",
+    layout: `111111111111111111111111111111
+1c00000000000000000000000000001
+1f0000001111000000000000000000h1
+10000000101100000000000000000101
+10000000000000000000000000000101
+10000000000000000000000000000101
+1f0000001111000000000000000000h1
+10000000101100000000000000000101
+10000000000000000000000000000101
+1c00000000000000000000000000001
+111111111111111111111111111111`,
+    description: "Kitchen with chemical analysis station"
+  },
+  bedroomLab: {
+    name: "Sleep Lab",
+    layout: `111111111111111111111111111111
+1c00000000000000000000000000001
+1f0000000000000000000000000000h1
+10000000000000000000000000000101
+10000000000000000000000000000101
+10000000000000000000000000000101
+1f0000000000000000000000000000h1
+10000000000000000000000000000101
+10000000000000000000000000000101
+1c00000000000000000000000000001
+111111111111111111111111111111`,
+    description: "Bedroom with sleep monitoring equipment"
+  },
+  officeLab: {
+    name: "Research Office",
+    layout: `111111111111111111111111111111
+1c00000000000000000000000000001
+1f0000000000000000000000000000h1
+10000000000000000000000000000101
+10000000000000000000000000000101
+10000000000000000000000000000101
+1f0000000000000000000000000000h1
+10000000000000000000000000000101
+10000000000000000000000000000101
+1c00000000000000000000000000001
+111111111111111111111111111111`,
+    description: "Office with data analysis terminals"
+  },
+  storageLab: {
+    name: "Specimen Storage",
+    layout: `111111111111111111111111111111
+1c00000000000000000000000000001
+1f0000000000000000000000000000h1
+10000000000000000000000000000101
+10000000000000000000000000000101
+10000000000000000000000000000101
+1f0000000000000000000000000000h1
+10000000000000000000000000000101
+10000000000000000000000000000101
+1c00000000000000000000000000001
+111111111111111111111111111111`,
+    description: "Storage room for lab specimens and home items"
+  },
+};
+
+// ── Reproducibility & Versioning ──────────────────────────────────────────────
+
+// Seeded random number generator for deterministic behavior
+class SeededRNG {
+  constructor(seed = Date.now()) {
+    this.seed = seed;
+    this.current = seed;
+  }
+
+  // Simple linear congruential generator
+  next() {
+    this.current = (this.current * 1103515245 + 12345) & 0x7fffffff;
+    return this.current / 0x7fffffff;
+  }
+
+  nextInt(min, max) {
+    return Math.floor(this.next() * (max - min + 1)) + min;
+  }
+
+  nextFloat(min, max) {
+    return this.next() * (max - min) + min;
+  }
+
+  nextBoolean() {
+    return this.next() < 0.5;
+  }
+
+  // Get current seed for reproducibility
+  getSeed() {
+    return this.seed;
+  }
+
+  // Reset to original seed
+  reset() {
+    this.current = this.seed;
+  }
+
+  // Set new seed
+  setSeed(seed) {
+    this.seed = seed;
+    this.current = seed;
+  }
+}
+
+// Version information for locking
+const GAME_VERSION = {
+  major: 1,
+  minor: 0,
+  patch: 0,
+  hash: "dev", // Would be commit hash in production
+  build: Date.now(),
+};
+
+// Config snapshot system
+class ConfigSnapshot {
+  constructor() {
+    this.snapshots = new Map();
+    this.currentSnapshot = null;
+  }
+
+  // Take a snapshot of current game state
+  takeSnapshot(name, state) {
+    const snapshot = {
+      name,
+      timestamp: Date.now(),
+      version: { ...GAME_VERSION },
+      config: this.extractConfig(state),
+      seed: state.rng?.getSeed() || null,
+    };
+    this.snapshots.set(name, snapshot);
+    this.currentSnapshot = name;
+    return snapshot;
+  }
+
+  // Extract relevant config from state
+  extractConfig(state) {
+    return {
+      zoneIndex: state.zoneIndex,
+      ai: state.stalker ? {
+        speed: ZONES[state.zoneIndex]?.ai?.speed,
+        sightRange: ZONES[state.zoneIndex]?.ai?.sightRange,
+        hearingRange: ZONES[state.zoneIndex]?.ai?.hearingRange,
+        predictive: ZONES[state.zoneIndex]?.ai?.predictive,
+      } : null,
+      tools: { ...state.tools },
+      transformState: { ...state.transformState },
+      scores: { ...state.scores },
+      director: {
+        stress: state.director?.stress,
+        hesitationTicks: state.director?.hesitationTicks,
+      },
+    };
+  }
+
+  // Restore a snapshot
+  restoreSnapshot(name, state) {
+    const snapshot = this.snapshots.get(name);
+    if (!snapshot) {
+      throw new Error(`Snapshot "${name}" not found`);
+    }
+
+    // Version check
+    if (!this.versionMatches(snapshot.version)) {
+      console.warn(`Version mismatch: snapshot ${snapshot.version.major}.${snapshot.version.minor}.${snapshot.version.patch}, current ${GAME_VERSION.major}.${GAME_VERSION.minor}.${GAME_VERSION.patch}`);
+    }
+
+    // Restore seed
+    if (snapshot.seed !== null && state.rng) {
+      state.rng.setSeed(snapshot.seed);
+    }
+
+    this.currentSnapshot = name;
+    return snapshot;
+  }
+
+  // Check if versions match
+  versionMatches(version) {
+    return version.major === GAME_VERSION.major &&
+           version.minor === GAME_VERSION.minor;
+  }
+
+  // Get current snapshot
+  getCurrent() {
+    return this.snapshots.get(this.currentSnapshot);
+  }
+
+  // List all snapshots
+  listSnapshots() {
+    return Array.from(this.snapshots.entries()).map(([name, snap]) => ({
+      name,
+      timestamp: snap.timestamp,
+      version: snap.version,
+      seed: snap.seed,
+    }));
+  }
+
+  // Delete a snapshot
+  deleteSnapshot(name) {
+    return this.snapshots.delete(name);
+  }
+
+  // Clear all snapshots
+  clear() {
+    this.snapshots.clear();
+    this.currentSnapshot = null;
+  }
+}
+
+// Deterministic logging system
+class DeterministicLogger {
+  constructor() {
+    this.logs = [];
+    this.enabled = true;
+    this.maxLogs = 10000;
+  }
+
+  log(category, message, data = null) {
+    if (!this.enabled) return;
+
+    const entry = {
+      tick: this.currentTick || 0,
+      timestamp: Date.now(),
+      category,
+      message,
+      data: data ? JSON.parse(JSON.stringify(data)) : null,
+    };
+
+    this.logs.push(entry);
+
+    // Keep log size manageable
+    if (this.logs.length > this.maxLogs) {
+      this.logs.shift();
+    }
+
+    // Also log to console for debugging
+    console.log(`[${category}] ${message}`, data || '');
+  }
+
+  // Get logs for a category
+  getLogs(category) {
+    return this.logs.filter(log => log.category === category);
+  }
+
+  // Get logs for a tick range
+  getLogsByTick(start, end) {
+    return this.logs.filter(log => log.tick >= start && log.tick <= end);
+  }
+
+  // Export logs for comparison
+  exportLogs() {
+    return JSON.stringify({
+      version: GAME_VERSION,
+      logs: this.logs,
+    }, null, 2);
+  }
+
+  // Clear logs
+  clear() {
+    this.logs = [];
+  }
+
+  // Enable/disable logging
+  setEnabled(enabled) {
+    this.enabled = enabled;
+  }
+
+  // Set current tick for logging
+  setCurrentTick(tick) {
+    this.currentTick = tick;
+  }
+}
+
+// Global reproducibility state
+let globalRNG = new SeededRNG();
+let configSnapshot = new ConfigSnapshot();
+let deterministicLogger = new DeterministicLogger();
+
+// Export for external use
+export { SeededRNG, ConfigSnapshot, DeterministicLogger, GAME_VERSION };
+export function getGlobalRNG() { return globalRNG; }
+export function setGlobalRNG(rng) { globalRNG = rng; }
+export function getConfigSnapshot() { return configSnapshot; }
+export function getDeterministicLogger() { return deterministicLogger; }
+
+// ── Mirror Loop Setup ────────────────────────────────────────────────────────
+// Returns mirror loop connections for specific zones
+function getZoneMirrorLoops(zoneIndex) {
+  const loops = {};
+  
+  switch (zoneIndex) {
+    case 3: // Bathroom - mirror loops between stalls
+      loops["4,7"] = { x: 20, y: 4 };
+      loops["20,4"] = { x: 4, y: 7 };
+      break;
+    case 7: // Bedroom - mirror loops
+      loops["20,2"] = { x: 9, y: 7 };
+      loops["9,7"] = { x: 20, y: 2 };
+      break;
+    case 12: // Greenhouse - plant maze mirrors
+      loops["8,5"] = { x: 21, y: 3 };
+      loops["21,3"] = { x: 8, y: 5 };
+      break;
+    case 15: // Chapel - confessional mirrors
+      loops["9,6"] = { x: 14, y: 1 };
+      loops["14,1"] = { x: 9, y: 6 };
+      break;
+    case 22: // Clock Tower - time reflection mirrors
+      loops["10,8"] = { x: 14, y: 4 };
+      loops["14,4"] = { x: 10, y: 8 };
+      break;
+    case 23: // Fountain Room - water mirrors
+      loops["12,8"] = { x: 5, y: 3 };
+      loops["5,3"] = { x: 12, y: 8 };
+      break;
+    case 26: // Hall of Mirrors - multiple loops
+      loops["5,8"] = { x: 23, y: 1 };
+      loops["23,1"] = { x: 5, y: 8 };
+      loops["10,2"] = { x: 18, y: 7 };
+      loops["18,7"] = { x: 10, y: 2 };
+      break;
+    case 29: // The Void - dimensional mirrors
+      loops["9,6"] = { x: 17, y: 3 };
+      loops["17,3"] = { x: 9, y: 6 };
+      loops["6,2"] = { x: 22, y: 4 };
+      loops["22,4"] = { x: 6, y: 2 };
+      break;
+  }
+  
+  return loops;
+}
+
+// ── Fake Mirror Setup ────────────────────────────────────────────────────────
+// Returns positions of fake mirrors that show distorted reflections
+function getZoneFakeMirrors(zoneIndex) {
+  const fakes = [];
+  
+  switch (zoneIndex) {
+    case 3: fakes.push("4,7"); break;
+    case 7: fakes.push("20,2"); break;
+    case 12: fakes.push("8,5", "21,3"); break;
+    case 15: fakes.push("9,6"); break;
+    case 22: fakes.push("10,8"); break;
+    case 26: fakes.push("5,8", "23,1", "10,2", "18,7"); break;
+    case 29: fakes.push("9,6", "17,3"); break;
+  }
+  
+  return new Set(fakes);
+}
+
 // Zone maps are generated dynamically by buildZoneMap().
 // ZONE_MAPS[0] is only the initial placeholder before resetZoneMap() runs.
 const ZONE_MAPS = [
@@ -541,6 +1461,24 @@ const ZONE_NOTE_TABLETS = {
   9: [{ x: 20, y: 1 }],
   10: [{ x: 4, y: 1 }, { x: 17, y: 1 }],
   11: [{ x: 22, y: 8 }],
+  12: [{ x: 8, y: 3 }, { x: 21, y: 2 }],
+  13: [{ x: 13, y: 7 }],
+  14: [{ x: 6, y: 4 }, { x: 20, y: 3 }],
+  15: [{ x: 14, y: 3 }],
+  16: [{ x: 7, y: 5 }, { x: 19, y: 5 }],
+  17: [{ x: 14, y: 2 }],
+  18: [{ x: 12, y: 5 }],
+  19: [{ x: 14, y: 6 }],
+  20: [{ x: 14, y: 3 }],
+  21: [{ x: 13, y: 4 }],
+  22: [{ x: 14, y: 3 }],
+  23: [{ x: 14, y: 6 }],
+  24: [{ x: 14, y: 4 }],
+  25: [{ x: 12, y: 5 }],
+  26: [{ x: 13, y: 4 }],
+  27: [{ x: 13, y: 5 }],
+  28: [{ x: 14, y: 4 }],
+  29: [{ x: 13, y: 7 }],
 };
 
 const NOTE_LORE = [
@@ -596,6 +1534,11 @@ export function createGame(canvas) {
   })).then(() => {
     spriteAssets.loaded = true;
   });
+
+  // Initialize enhanced art systems
+  const tileRenderer = new TileRenderer(ctx, TILE);
+  const lightingSystem = new LightingSystem(ctx, canvas, TILE);
+  const particleSystem = new ParticleSystem(ctx, canvas);
 
   function drawTileFromSheet(tileX, tileY, x, y) {
     const tiles = spriteAssets.tiles;
@@ -711,13 +1654,21 @@ export function createGame(canvas) {
     scores: { corruptionLevel: 0, aiEncounters: 0, roomsCompleted: 0, roomsVisited: 1, detections: 0, deaths: 0 },
     keysCollected: [],             // array of zoneIndex values for collected keys
     stability: { stalledTicks: 0, lastRescueTick: -9999 },
-    chess: {
-      open: false, board: null, selected: null, turn: "w", thinking: false,
-      gameOver: false, message: "Your move — you are White.", lastMove: null,
-      moveHistory: [], stockfish: null, sfReady: false, legalDests: [],
-    },
-    bot: { enabled: false, name: "", hash: "", input: {}, lastError: "", locked: false },
-    runAttributes: { bot: { mode: "none", name: "", hash: "", disabled: false, violations: 0, integrity: "unknown" } },
+    
+    // ── Reproducibility Systems ─────────────────────────────────────────────
+    rng: new SeededRNG(),         // Seeded random number generator
+    seed: Date.now(),             // Current seed value
+    deterministicMode: false,     // Whether to use deterministic RNG
+    configSnapshot: new ConfigSnapshot(),
+    logger: new DeterministicLogger(),
+    versionLocked: false,         // Whether version is locked for this run
+    
+    // ── Mirror Loops ──────────────────────────────────────────────────────────
+    // Stores looping mirror connections: { "x,y": { x: targetX, y: targetY } }
+    mirrorLoops: {},
+    fakeMirrors: new Set(),
+    mirrorLureEnabled: false,
+    mirrorCloneEnabled: false,
 
     // ── Adaptive Director ────────────────────────────────────────────────────
     // Observes input-leakable fear signals, then nudges small mutable map
@@ -1422,6 +2373,11 @@ export function createGame(canvas) {
     state.mandatoryCorruptionMet = false;
     state.stability.stalledTicks = 0;
     state.stability.lastRescueTick = -9999;
+    
+    // ── Setup Mirror Loops for this zone ─────────────────────────────────────
+    state.mirrorLoops = getZoneMirrorLoops(state.zoneIndex);
+    state.fakeMirrors = getZoneFakeMirrors(state.zoneIndex);
+    
     refreshToolsForZone();
     seedDecoration();
 
@@ -1998,6 +2954,12 @@ export function createGame(canvas) {
   function drawTile(x, y, t) {
     const bx = x * TILE;
     const by = y * TILE;
+
+    // Use enhanced tile renderer when sprites not available
+    if (!spriteAssets.tiles) {
+      tileRenderer.drawTile(x, y, t, state.tick);
+      return;
+    }
 
     const tileSpriteMap = {
       0: [0, 0],
@@ -3904,6 +4866,28 @@ export function createGame(canvas) {
       ctx.fillRect(p.x * TILE, p.y * TILE, 2, 2);
     }
 
+    // Update logger tick for deterministic logging
+    if (state.logger) {
+      state.logger.setCurrentTick(state.tick);
+    }
+
+    // Spawn ambient particles occasionally
+    if (state.tick % 30 === 0 && state.rng && state.rng.nextBoolean()) {
+      particleSystem.spawnAmbient(2, state.tick);
+    }
+
+    // Render particles
+    particleSystem.updateAndRender();
+
+    // Render lighting overlay
+    const flashlightOn = state.tools.flashlight > 0;
+    lightingSystem.render(
+      state.player.x,
+      state.player.y,
+      flashlightOn,
+      state.tick
+    );
+
     if (state.decoySound) {
       ctx.strokeStyle = "rgba(120,120,120,0.35)";
       ctx.beginPath();
@@ -3917,7 +4901,7 @@ export function createGame(canvas) {
       ctx.fillRect(4, 4, 420, 62);
       ctx.fillStyle = "#fff";
       ctx.font = "10px monospace";
-      ctx.fillText(`Zone ${state.zoneIndex + 1}/12  ${zone().name}`, 8, 14);
+      ctx.fillText(`Zone ${state.zoneIndex + 1}/30  ${zone().name}`, 8, 14);
       ctx.fillText(`Tools[1-5] F${state.tools.flashlight} T${state.tools.tape} C${state.tools.candy} M${state.tools.mirrorShard} K${state.tools.keyCrayon}`, 8, 24);
       ctx.fillText(state.uiText || "", 8, 34);
       ctx.fillText(`FX: ${getTransformationLabels(state.transformState)}`, 8, 44);

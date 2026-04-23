@@ -1,5 +1,6 @@
-import { createGame } from "./engine.js";
+import { createGame, createCustomMap, LAB_HOME_TEMPLATES, GAME_VERSION } from "./engine.js";
 import { createAntiCheatRuntime } from "./anti-cheat.js";
+import { createModManager } from "./mod-system.js";
 
 const SAVE_KEY = "horror-game-save-v1";
 const CRASH_KEY = "horror-game-last-crash-v1";
@@ -300,6 +301,11 @@ function bootGameWithAutoFix() {
     try {
       const canvas = ensureCanvas();
       game = createGame(canvas);
+      game.createCustomMap = createCustomMap;
+      game.LAB_HOME_TEMPLATES = LAB_HOME_TEMPLATES;
+      game.GAME_VERSION = GAME_VERSION;
+      game.customMaps = {};
+      game.modManager = createModManager(game);
       window.__game = game;
       registerConsoleCommands(game);
       started = false;
