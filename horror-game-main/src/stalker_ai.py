@@ -987,13 +987,27 @@ class OracleResource:
 
 class SwarmMCP:
     """
-    Custom Swarm-MCP with Shared Latent Spaces.
+    2026 High-Speed Custom Swarm-MCP with Event-Driven Architecture.
+    
+    Optimizations for Real-Time Game Swarm:
+    1. Event-Driven State Push (SSE-style) - Eliminates polling latency
+    2. MCP + A2A Hybrid Logic - SharedBlackboard for agent coordination
+    3. Protocol-Level QMIX Monotonicity - Joint reward mixing at MCP level
+    4. Metadata Caching - Tool schema and selective context filtering
+    5. Batching & Pipelining - State packet grouping for efficiency
+    6. Circuit Breakers - Prevent swarm loops on glitches
     
     Resources:
     1. Oracle Resource - Context Injection via getEnvironmentalDelta
     2. Binary-Packed Protocol - Atomic Commands for zero-desync
-    3. Shared Attention Buffer - Blackboard for cross-agent awareness
+    3. Shared Attention Buffer - Zone-based environmental events (existing)
     4. Subscription Model - Zone heatmap change detection
+    5. SharedBlackboard - Key-value A2A communication (new)
+    6. StatePacket Batcher - Grouped state updates
+    
+    Dual Blackboard Architecture:
+    - SharedAttentionBuffer: Zone-based events (player_sighting, trap_failed, etc.)
+    - SharedBlackboard: Key-value A2A communication (visual_lock, task_delegation, etc.)
     """
     
     def __init__(self, config: StalkerConfig, num_agents: int = 5):
@@ -1013,13 +1027,52 @@ class SwarmMCP:
         # Atomic command queue
         self.atomic_command_queue: List[AtomicCommand] = []
         
+        # ── 2026 Event-Driven Architecture ─────────────────────────────────────
+        # Event-driven state push system (SSE-style)
+        self.event_queue: List[Dict] = []
+        self.event_subscribers: Dict[int, List[Callable]] = {}  # agent_id -> callbacks
+        self.last_event_push: float = 0.0
+        self.event_push_interval: float = 0.016  # ~60 FPS state pushes
+        
+        # MCP + A2A Hybrid: SharedBlackboard for agent-to-agent communication
+        self.shared_blackboard: Dict[str, Any] = {}
+        self.blackboard_subscriptions: Dict[str, Set[int]] = {}  # key -> agent_ids
+        self.blackboard_ttl: Dict[str, float] = {}  # key -> expiry time
+        
+        # Protocol-Level QMIX Monotonicity
+        self.joint_reward_history: List[float] = []
+        self.agent_individual_rewards: Dict[int, float] = {}
+        self.monotonicity_violations: int = 0
+        
+        # Metadata Caching
+        self.tool_schema_cache: Dict[str, Dict] = {}
+        self.context_filter_cache: Dict[int, Set[int]] = {}  # agent_id -> adjacent zones
+        
+        # Batching & Pipelining
+        self.state_packet_buffer: List[Dict] = []
+        self.batch_size: int = 10
+        self.pipeline_stages: List[Callable] = []
+        
+        # Circuit Breakers
+        self.circuit_breaker_tripped: bool = False
+        self.circuit_breaker_threshold: int = 100  # Max failures before trip
+        self.failure_count: int = 0
+        self.circuit_breaker_cooldown: float = 5.0  # Seconds
+        self.last_circuit_breaker_trip: float = 0.0
+        
         # Statistics
         self.stats = {
             "oracle_queries": 0,
             "atomic_commands_sent": 0,
             "attention_writes": 0,
             "attention_reads": 0,
-            "heatmap_notifications": 0
+            "heatmap_notifications": 0,
+            "event_pushes": 0,
+            "blackboard_writes": 0,
+            "blackboard_reads": 0,
+            "state_packets_batched": 0,
+            "circuit_breaker_trips": 0,
+            "monotonicity_checks": 0
         }
     
     def get_environmental_delta(
@@ -1151,6 +1204,444 @@ class SwarmMCP:
     def get_statistics(self) -> Dict:
         """Get MCP statistics."""
         return self.stats.copy()
+    
+    # ── 2026 Event-Driven State Push Methods ─────────────────────────────────────
+    
+    def push_state_event(
+        self,
+        event_type: str,
+        data: Dict,
+        target_agent_ids: List[int] = None
+    ) -> None:
+        """
+        Push state event to subscribed agents (SSE-style).
+        Eliminates polling latency by pushing changes immediately.
+        """
+        if self.circuit_breaker_tripped:
+            return
+        
+        event = {
+            "event_type": event_type,
+            "data": data,
+            "timestamp": time.time(),
+            "target_agent_ids": target_agent_ids  # None = broadcast to all
+        }
+        
+        self.event_queue.append(event)
+        self.stats["event_pushes"] += 1
+    
+    def subscribe_to_events(self, agent_id: int, callback: Callable) -> None:
+        """Subscribe an agent to event-driven state pushes."""
+        if agent_id not in self.event_subscribers:
+            self.event_subscribers[agent_id] = []
+        self.event_subscribers[agent_id].append(callback)
+    
+    def process_event_queue(self) -> None:
+        """
+        Process queued events and push to subscribers.
+        Called every frame to maintain ~60 FPS state synchronization.
+        """
+        now = time.time()
+        if now - self.last_event_push < self.event_push_interval:
+            return
+        
+        self.last_event_push = now
+        
+        for event in self.event_queue[:]:
+            target_ids = event.get("target_agent_ids")
+            
+            if target_ids is None:
+                # Broadcast to all subscribers
+                for agent_id, callbacks in self.event_subscribers.items():
+                    for callback in callbacks:
+                        try:
+                            callback(event)
+                        except Exception:
+                            self._record_failure()
+            else:
+                # Push to specific agents
+                for agent_id in target_ids:
+                    if agent_id in self.event_subscribers:
+                        for callback in self.event_subscribers[agent_id]:
+                            try:
+                                callback(event)
+                            except Exception:
+                                self._record_failure()
+            
+            self.event_queue.remove(event)
+    
+    # ── MCP + A2A Hybrid: SharedBlackboard Methods ───────────────────────────────
+    # Note: SharedBlackboard complements SharedAttentionBuffer
+    # - SharedAttentionBuffer: Zone-based environmental events (existing)
+    # - SharedBlackboard: Key-value A2A communication (new)
+    
+    def blackboard_write(
+        self,
+        key: str,
+        value: Any,
+        ttl: float = 5.0,
+        writer_agent_id: int = None
+    ) -> None:
+        """
+        Write to SharedBlackboard for A2A agent-to-agent communication.
+        Enables direct Stalker-to-Stalker task delegation.
+        
+        Complements SharedAttentionBuffer which handles zone-based events.
+        """
+        if self.circuit_breaker_tripped:
+            return
+        
+        self.shared_blackboard[key] = {
+            "value": value,
+            "writer_agent_id": writer_agent_id,
+            "timestamp": time.time()
+        }
+        self.blackboard_ttl[key] = time.time() + ttl
+        self.stats["blackboard_writes"] += 1
+        
+        # Notify subscribers
+        if key in self.blackboard_subscriptions:
+            for agent_id in self.blackboard_subscriptions[key]:
+                self.push_state_event(
+                    event_type="blackboard_update",
+                    data={"key": key, "value": value},
+                    target_agent_ids=[agent_id]
+                )
+    
+    def blackboard_read(self, key: str, reader_agent_id: int = None) -> Optional[Any]:
+        """Read from SharedBlackboard."""
+        # Check TTL
+        if key in self.blackboard_ttl and time.time() > self.blackboard_ttl[key]:
+            del self.shared_blackboard[key]
+            del self.blackboard_ttl[key]
+            return None
+        
+        if key in self.shared_blackboard:
+            self.stats["blackboard_reads"] += 1
+            return self.shared_blackboard[key]["value"]
+        return None
+    
+    def subscribe_blackboard(self, agent_id: int, key: str) -> None:
+        """Subscribe an agent to blackboard key updates."""
+        if key not in self.blackboard_subscriptions:
+            self.blackboard_subscriptions[key] = set()
+        self.blackboard_subscriptions[key].add(agent_id)
+    
+    def get_visual_lock(self) -> Optional[Dict]:
+        """
+        Get current visual lock from blackboard.
+        When Hound sees player, it writes "Visual Lock" here.
+        Conductor reads this to delegate tasks via A2A.
+        """
+        return self.blackboard_read("visual_lock")
+    
+    def set_visual_lock(
+        self,
+        player_position: Tuple[int, int],
+        confidence: float,
+        agent_id: int,
+        zone_id: int = None
+    ) -> None:
+        """
+        Set visual lock when agent spots player.
+        Writes to both SharedBlackboard (A2A) and SharedAttentionBuffer (zone events).
+        """
+        # Write to SharedBlackboard for A2A communication
+        self.blackboard_write(
+            key="visual_lock",
+            value={
+                "player_position": player_position,
+                "confidence": confidence,
+                "spotter_agent_id": agent_id
+            },
+            ttl=2.0,  # 2 second visual lock
+            writer_agent_id=agent_id
+        )
+        
+        # Also write to SharedAttentionBuffer for zone-based awareness
+        if zone_id is not None:
+            entry = AttentionEntry(
+                agent_id=agent_id,
+                zone_id=zone_id,
+                event_type="player_sighting",
+                confidence=confidence,
+                timestamp=time.time(),
+                ttl=120  # 2 seconds in ticks
+            )
+            self.attention_buffer.write(entry)
+    
+    # ── Protocol-Level QMIX Monotonicity Methods ───────────────────────────────────
+    
+    def calculate_mcp_joint_reward(
+        self,
+        agent_ids: List[int],
+        individual_rewards: Dict[int, float],
+        goal_progress: float
+    ) -> Dict[str, Any]:
+        """
+        Calculate joint reward at MCP level (QMIX monotonicity).
+        MCP acts as the "Joint Reward Mixer" and streams gradient updates.
+        """
+        if self.circuit_breaker_tripped:
+            return {"joint_reward": 0.0, "monotonicity_satisfied": False}
+        
+        # Record individual rewards
+        for agent_id, reward in individual_rewards.items():
+            self.agent_individual_rewards[agent_id] = reward
+        
+        # Weight individual rewards (20%)
+        weighted_individual = sum(
+            self.agent_individual_rewards.get(aid, 0.0) * 0.2
+            for aid in agent_ids
+        )
+        
+        # Weight joint goal progress (80%)
+        weighted_joint = goal_progress * 0.8
+        
+        # Mix rewards
+        joint_reward = weighted_individual + weighted_joint
+        
+        # Check monotonicity
+        monotonicity_satisfied = self._check_mcp_monotonicity(
+            agent_ids, joint_reward
+        )
+        
+        self.joint_reward_history.append(joint_reward)
+        self.stats["monotonicity_checks"] += 1
+        
+        # Push reward update to agents
+        self.push_state_event(
+            event_type="joint_reward_update",
+            data={
+                "joint_reward": joint_reward,
+                "monotonicity_satisfied": monotonicity_satisfied
+            },
+            target_agent_ids=agent_ids
+        )
+        
+        return {
+            "joint_reward": joint_reward,
+            "monotonicity_satisfied": monotonicity_satisfied,
+            "individual_rewards": individual_rewards.copy()
+        }
+    
+    def _check_mcp_monotonicity(
+        self,
+        agent_ids: List[int],
+        current_joint: float
+    ) -> bool:
+        """Check if monotonicity constraint is satisfied at MCP level."""
+        if len(self.joint_reward_history) < 2:
+            return True
+        
+        prev_joint = self.joint_reward_history[-2]
+        
+        # Calculate total individual reward change
+        total_individual = sum(
+            self.agent_individual_rewards.get(aid, 0.0) for aid in agent_ids
+        )
+        
+        # Get previous total (approximate from history)
+        prev_total = total_individual * 0.95  # Assume slight decay
+        
+        # Monotonicity: if individual increased, joint must increase
+        if total_individual >= prev_total:
+            if current_joint < prev_joint:
+                self.monotonicity_violations += 1
+                return False
+        
+        return True
+    
+    # ── Metadata Caching and Selective Context Methods ────────────────────────────
+    
+    def cache_tool_schema(self, tool_name: str, schema: Dict) -> None:
+        """Cache tool schema so agents don't rediscover capabilities."""
+        self.tool_schema_cache[tool_name] = schema
+    
+    def get_tool_schema(self, tool_name: str) -> Optional[Dict]:
+        """Get cached tool schema."""
+        return self.tool_schema_cache.get(tool_name)
+    
+    def set_adjacent_zones(self, agent_id: int, zones: Set[int]) -> None:
+        """
+        Set adjacent zones for an agent.
+        MCP only feeds data from adjacent zones (selective context).
+        """
+        self.context_filter_cache[agent_id] = zones
+    
+    def get_filtered_context(
+        self,
+        agent_id: int,
+        full_context: Dict[int, Any]
+    ) -> Dict[int, Any]:
+        """
+        Filter context to only adjacent zones.
+        Ghost in Zone 29 doesn't need Zone 1 data.
+        """
+        adjacent_zones = self.context_filter_cache.get(agent_id, set())
+        
+        if not adjacent_zones:
+            return full_context  # No filter, return all
+        
+        filtered = {}
+        for zone_id, data in full_context.items():
+            if zone_id in adjacent_zones:
+                filtered[zone_id] = data
+        
+        return filtered
+    
+    # ── Batching & Pipelining Methods ────────────────────────────────────────────
+    
+    def add_to_state_packet(self, state_update: Dict) -> None:
+        """Add state update to batch buffer."""
+        self.state_packet_buffer.append(state_update)
+        
+        # Auto-flush if batch size reached
+        if len(self.state_packet_buffer) >= self.batch_size:
+            self.flush_state_packet()
+    
+    def flush_state_packet(self) -> List[Dict]:
+        """
+        Flush buffered state updates as a single packet.
+        Groups multiple game-state updates into one "State Packet".
+        """
+        if not self.state_packet_buffer:
+            return []
+        
+        packet = self.state_packet_buffer.copy()
+        self.state_packet_buffer.clear()
+        self.stats["state_packets_batched"] += 1
+        
+        # Push batched packet to subscribers
+        self.push_state_event(
+            event_type="state_packet",
+            data={"updates": packet},
+            target_agent_ids=None  # Broadcast
+        )
+        
+        return packet
+    
+    def add_pipeline_stage(self, stage: Callable) -> None:
+        """Add a processing stage to the pipeline."""
+        self.pipeline_stages.append(stage)
+    
+    def process_pipeline(self, data: Any) -> Any:
+        """Process data through all pipeline stages."""
+        result = data
+        for stage in self.pipeline_stages:
+            result = stage(result)
+        return result
+    
+    # ── Circuit Breaker Methods ───────────────────────────────────────────────────
+    
+    def _record_failure(self) -> None:
+        """Record a failure and check circuit breaker."""
+        self.failure_count += 1
+        
+        if self.failure_count >= self.circuit_breaker_threshold:
+            self.trip_circuit_breaker()
+    
+    def trip_circuit_breaker(self) -> None:
+        """Trip circuit breaker to prevent swarm loops."""
+        self.circuit_breaker_tripped = True
+        self.last_circuit_breaker_trip = time.time()
+        self.stats["circuit_breaker_trips"] += 1
+        
+        # Clear queues to prevent cascading failures
+        self.event_queue.clear()
+        self.state_packet_buffer.clear()
+    
+    def check_circuit_breaker(self) -> bool:
+        """Check if circuit breaker should be reset."""
+        if not self.circuit_breaker_tripped:
+            return False
+        
+        # Reset after cooldown
+        if time.time() - self.last_circuit_breaker_trip > self.circuit_breaker_cooldown:
+            self.reset_circuit_breaker()
+            return True
+        
+        return False
+    
+    def reset_circuit_breaker(self) -> None:
+        """Reset circuit breaker after cooldown."""
+        self.circuit_breaker_tripped = False
+        self.failure_count = 0
+    
+    # ── 2026 High-Speed Integration Method ───────────────────────────────────────
+    
+    def update_mcp_2026(
+        self,
+        current_tick: int,
+        player_position: Tuple[int, int],
+        agent_positions: Dict[int, Tuple[int, int]],
+        agent_zones: Dict[int, int]
+    ) -> Dict[str, Any]:
+        """
+        Main 2026 MCP update loop - integrates all optimizations.
+        Call this every frame for high-speed swarm coordination.
+        """
+        # Check circuit breaker
+        self.check_circuit_breaker()
+        
+        if self.circuit_breaker_tripped:
+            return {"status": "circuit_breaker_tripped"}
+        
+        # Process event queue (SSE-style state pushes)
+        self.process_event_queue()
+        
+        # Flush any pending state packets
+        self.flush_state_packet()
+        
+        # Update zone heatmaps with selective context
+        for agent_id, zone_id in agent_zones.items():
+            adjacent_zones = self.context_filter_cache.get(agent_id, {zone_id})
+            for adj_zone in adjacent_zones:
+                # Calculate heatmap value based on agent proximity
+                agent_pos = agent_positions.get(agent_id, (0, 0))
+                zone_center = self._get_zone_center(adj_zone)
+                distance = math.sqrt(
+                    (agent_pos[0] - zone_center[0])**2 +
+                    (agent_pos[1] - zone_center[1])**2
+                )
+                heatmap_value = max(0.0, 1.0 - distance / 10.0)
+                
+                notified = self.update_heatmap(adj_zone, heatmap_value)
+                if notified:
+                    # Push heatmap update to subscribed agents
+                    self.push_state_event(
+                        event_type="heatmap_update",
+                        data={"zone_id": adj_zone, "value": heatmap_value},
+                        target_agent_ids=notified
+                    )
+        
+        # Cleanup expired blackboard entries
+        self._cleanup_blackboard()
+        
+        return {
+            "status": "active",
+            "event_queue_size": len(self.event_queue),
+            "blackboard_entries": len(self.shared_blackboard),
+            "circuit_breaker_active": self.circuit_breaker_tripped
+        }
+    
+    def _get_zone_center(self, zone_id: int) -> Tuple[int, int]:
+        """Get center position of a zone."""
+        # Simplified: use ZONES dict if available
+        if zone_id in ZONES:
+            return (ZONES[zone_id].x, ZONES[zone_id].y)
+        return (15, 5)  # Default center
+    
+    def _cleanup_blackboard(self) -> None:
+        """Remove expired blackboard entries."""
+        now = time.time()
+        expired_keys = [
+            key for key, expiry in self.blackboard_ttl.items()
+            if now >= expiry
+        ]
+        for key in expired_keys:
+            del self.shared_blackboard[key]
+            del self.blackboard_ttl[key]
 
 
 class VIL2CCommNet:
@@ -1789,7 +2280,17 @@ class Option:
 
 
 class Conductor:
-    """The Conductor - hierarchical meta-RL orchestrator for swarm coordination with Distributed Edge."""
+    """
+    The Conductor - Manager-Worker orchestrator for swarm coordination.
+    
+    Integrates 2026 coordination fixes:
+    - Temporal Credit Assignment: High-level goals with delayed reward evaluation
+    - SeqComm: Priority Negotiation for First Mover assignment
+    - Leader-Following: Dynamic role assignment to reduce coordination cost
+    - Goal Partitioning: Sub-policy selection to prevent redundant actions
+    - QMIX Monotonicity: Joint reward mixing for team-aligned incentives
+    - Conflict Resolution: Asynchronous negotiation for tile/goal conflicts
+    """
     
     def __init__(self, config: StalkerConfig, num_agents: int = 5):
         self.config = config
@@ -1820,6 +2321,37 @@ class Conductor:
         
         # Cheating detection history
         self.player_prediction_history: List[bool] = []  # Track if player predictions were accurate
+        
+        # ── 2026 Conductor AI Modules ─────────────────────────────────────────────
+        self.conductor_config = ConductorConfig()
+        
+        # Temporal Credit Assignment
+        self.temporal_credit = TemporalCreditAssignment(self.conductor_config)
+        
+        # SeqComm Priority Negotiation
+        self.priority_negotiation = PriorityNegotiation(self.conductor_config)
+        
+        # Leader-Following Dynamics
+        self.leader_following = LeaderFollowingSystem(self.conductor_config)
+        
+        # Goal Partitioning
+        self.goal_partitioning = GoalPartitioning(self.conductor_config)
+        
+        # QMIX Reward Mixing
+        self.qmix_reward = QMIXRewardMixing(self.conductor_config)
+        
+        # Conflict Resolution
+        self.conflict_resolution = ConflictResolution(self.conductor_config)
+        
+        # ── 2026 High-Speed MCP Integration ───────────────────────────────────────
+        # The Conductor now uses the optimized SwarmMCP for low-latency coordination
+        self.swarm_mcp = SwarmMCP(config, num_agents)
+        
+        # Initialize tool schema cache
+        self._initialize_tool_schemas()
+        
+        # Set up adjacent zones for each agent (selective context)
+        self._initialize_agent_zones()
         
     def create_option(
         self, 
@@ -2066,6 +2598,1103 @@ class Conductor:
         ]
         for key in expired:
             del self.reasoning_cache[key]
+    
+    # ── 2026 Conductor AI Coordination Methods ─────────────────────────────────────
+    
+    def coordinate_swarm(
+        self,
+        current_tick: int,
+        player_position: Tuple[int, int],
+        agent_positions: Dict[int, Tuple[int, int]],
+        agent_ids: List[int]
+    ) -> Dict[str, Any]:
+        """
+        Main coordination loop - integrates all 2026 coordination fixes.
+        Called every tick to orchestrate the swarm.
+        """
+        coordination_result = {
+            "tick": current_tick,
+            "active_goal": None,
+            "negotiation_result": None,
+            "leader_assignment": None,
+            "policy_assignments": [],
+            "conflict_resolutions": [],
+            "joint_reward": 0.0
+        }
+        
+        # 1. Temporal Credit Assignment: Create or evaluate high-level goal
+        if not self.temporal_credit.active_goals or current_tick % self.conductor_config.GOAL_EVALUATION_INTERVAL == 0:
+            # Create new goal based on player state
+            goal_type = self._determine_goal_type(player_position, agent_positions)
+            goal_id = self.temporal_credit.create_goal(
+                goal_type=goal_type,
+                target_position=player_position,
+                priority=1.0
+            )
+            
+            # Assign all agents to the goal
+            for agent_id in agent_ids:
+                self.temporal_credit.assign_agent_to_goal(goal_id, agent_id)
+            
+            coordination_result["active_goal"] = {
+                "goal_id": goal_id,
+                "goal_type": goal_type.value,
+                "target_position": player_position
+            }
+        
+        # Evaluate existing goals
+        for goal_id in list(self.temporal_credit.active_goals.keys()):
+            evaluation = self.temporal_credit.evaluate_goal(goal_id, player_position, agent_positions)
+            coordination_result["goal_evaluation"] = evaluation
+        
+        # Cleanup expired goals
+        self.temporal_credit.cleanup_expired_goals()
+        
+        # 2. SeqComm Priority Negotiation
+        if current_tick % self.conductor_config.NEGOTIATION_INTERVAL == 0:
+            # Register intentions based on agent roles and positions
+            for agent_id in agent_ids:
+                intention = self._determine_agent_intention(agent_id, player_position, agent_positions)
+                value = self._calculate_intention_value(agent_id, player_position, agent_positions)
+                self.priority_negotiation.register_intention(agent_id, intention, value)
+            
+            # Run negotiation
+            negotiation_result = self.priority_negotiation.negotiate(agent_ids, player_position, agent_positions)
+            coordination_result["negotiation_result"] = negotiation_result
+            
+            # Decay intentions
+            self.priority_negotiation.decay_intentions()
+        
+        # 3. Leader-Following Dynamics
+        if self.leader_following.should_reassign():
+            # Assign leader based on negotiation result or proximity
+            leader_id = self._select_leader(agent_ids, player_position, agent_positions)
+            followers = [aid for aid in agent_ids if aid != leader_id]
+            self.leader_following.assign_leader(leader_id, followers)
+            
+            coordination_result["leader_assignment"] = {
+                "leader_id": leader_id,
+                "follower_ids": followers
+            }
+        
+        # 4. Goal Partitioning
+        if self.temporal_credit.active_goals:
+            active_goal = list(self.temporal_credit.active_goals.values())[0]
+            policy_assignments = self.goal_partitioning.partition_goal(active_goal.goal_type, agent_ids)
+            coordination_result["policy_assignments"] = policy_assignments
+        
+        # Cleanup policy cooldowns
+        self.goal_partitioning.cleanup_cooldowns()
+        
+        # 5. Conflict Resolution
+        agent_goals = {}
+        for agent_id in agent_ids:
+            sub_policy = self.goal_partitioning.get_sub_policy(agent_id)
+            agent_goals[agent_id] = sub_policy.value
+        
+        conflicts = self.conflict_resolution.detect_conflict(agent_positions, agent_goals)
+        for conflict in conflicts:
+            resolution = self.conflict_resolution.resolve_conflict(
+                conflict,
+                self.leader_following.agent_roles,
+                {aid: self.priority_negotiation.agent_intentions.get(aid, AgentIntention(aid, "", 0.0)).value for aid in agent_ids}
+            )
+            coordination_result["conflict_resolutions"].append(resolution)
+        
+        # Cleanup stale conflicts
+        self.conflict_resolution.cleanup_stale_conflicts()
+        
+        # 6. QMIX Joint Reward Calculation
+        if self.temporal_credit.active_goals:
+            active_goal = list(self.temporal_credit.active_goals.values())[0]
+            joint_result = self.qmix_reward.calculate_joint_reward(agent_ids, active_goal.progress)
+            coordination_result["joint_reward"] = joint_result.joint_reward
+            coordination_result["monotonicity_satisfied"] = joint_result.monotonicity_satisfied
+        
+        return coordination_result
+    
+    def _determine_goal_type(
+        self,
+        player_position: Tuple[int, int],
+        agent_positions: Dict[int, Tuple[int, int]]
+    ) -> GoalType:
+        """Determine the appropriate high-level goal based on game state."""
+        # Check if player is near exit
+        if player_position[0] > 20:  # Near right side (exit area)
+            return GoalType.SECURE_EXIT
+        
+        # Check if agents are surrounding player
+        surrounding_count = 0
+        for agent_pos in agent_positions.values():
+            dist = math.sqrt((agent_pos[0] - player_position[0])**2 + (agent_pos[1] - player_position[1])**2)
+            if dist < 5:
+                surrounding_count += 1
+        
+        if surrounding_count >= 2:
+            return GoalType.ENCIRCLE_PLAYER
+        
+        # Default: patrol
+        return GoalType.PATROL_ZONE
+    
+    def _determine_agent_intention(
+        self,
+        agent_id: int,
+        player_position: Tuple[int, int],
+        agent_positions: Dict[int, Tuple[int, int]]
+    ) -> str:
+        """Determine an agent's intention based on its role and position."""
+        role = self.leader_following.get_role(agent_id)
+        agent_pos = agent_positions.get(agent_id, (0, 0))
+        
+        if role == ConductorAgentRole.LEADER:
+            return "chase"
+        elif role == ConductorAgentRole.FOLLOWER:
+            return "support"
+        else:
+            # Independent agents patrol
+            return "patrol"
+    
+    def _calculate_intention_value(
+        self,
+        agent_id: int,
+        player_position: Tuple[int, int],
+        agent_positions: Dict[int, Tuple[int, int]]
+    ) -> float:
+        """Calculate the value score of an agent's intention."""
+        agent_pos = agent_positions.get(agent_id, (0, 0))
+        dist = math.sqrt((agent_pos[0] - player_position[0])**2 + (agent_pos[1] - player_position[1])**2)
+        
+        # Closer agents have higher value for chase intentions
+        value = 1.0 - min(1.0, dist / 20.0)
+        return value
+    
+    def _select_leader(
+        self,
+        agent_ids: List[int],
+        player_position: Tuple[int, int],
+        agent_positions: Dict[int, Tuple[int, int]]
+    ) -> int:
+        """Select the best leader based on proximity and role."""
+        best_agent = agent_ids[0]
+        best_distance = float('inf')
+        
+        for agent_id in agent_ids:
+            agent_pos = agent_positions.get(agent_id, (0, 0))
+            dist = math.sqrt((agent_pos[0] - player_position[0])**2 + (agent_pos[1] - player_position[1])**2)
+            
+            if dist < best_distance:
+                best_distance = dist
+                best_agent = agent_id
+        
+        return best_agent
+    
+    def get_agent_instructions(
+        self,
+        agent_id: int,
+        player_position: Tuple[int, int],
+        agent_positions: Dict[int, Tuple[int, int]]
+    ) -> Dict[str, Any]:
+        """
+        Get specific instructions for a single agent based on its role and sub-policy.
+        """
+        role = self.leader_following.get_role(agent_id)
+        sub_policy = self.goal_partitioning.get_sub_policy(agent_id)
+        
+        instructions = {
+            "agent_id": agent_id,
+            "role": role.value,
+            "sub_policy": sub_policy.value,
+            "target_position": None,
+            "mode": "patrol"
+        }
+        
+        agent_pos = agent_positions.get(agent_id, (0, 0))
+        
+        if role == ConductorAgentRole.LEADER:
+            # Leader chases player directly
+            instructions["target_position"] = player_position
+            instructions["mode"] = "chase"
+        
+        elif role == ConductorAgentRole.FOLLOWER:
+            # Follower calculates support position
+            leader_id = None
+            for aid, r in self.leader_following.agent_roles.items():
+                if r == ConductorAgentRole.LEADER:
+                    leader_id = aid
+                    break
+            
+            if leader_id:
+                leader_pos = agent_positions.get(leader_id, agent_pos)
+                follower_index = list(self.leader_following.agent_roles.keys()).index(agent_id)
+                total_followers = len([r for r in self.leader_following.agent_roles.values() if r == ConductorAgentRole.FOLLOWER])
+                
+                support_pos = self.leader_following.calculate_support_position(
+                    leader_pos, player_position, follower_index, total_followers
+                )
+                instructions["target_position"] = support_pos
+                instructions["mode"] = "support"
+        
+        elif sub_policy == SubPolicy.BLOCK:
+            # Blocker positions between player and exit
+            instructions["target_position"] = (player_position[0] + 5, player_position[1])
+            instructions["mode"] = "block"
+        
+        elif sub_policy == SubPolicy.FLANK:
+            # Flanker moves to side of player
+            instructions["target_position"] = (player_position[0], player_position[1] + 3)
+            instructions["mode"] = "flank"
+        
+        return instructions
+    
+    # ── 2026 MCP Integration Helper Methods ───────────────────────────────────────
+    
+    def _initialize_tool_schemas(self) -> None:
+        """Initialize tool schema cache for all available tools."""
+        tool_schemas = {
+            "tile_swap": {
+                "description": "Swap two tiles on the map",
+                "parameters": {"tile1": "int", "tile2": "int", "zone": "int"}
+            },
+            "audio_distortion": {
+                "description": "Apply audio distortion effect",
+                "parameters": {"intensity": "float", "duration": "float"}
+            },
+            "light_flicker": {
+                "description": "Flicker lights in a zone",
+                "parameters": {"zone": "int", "frequency": "float"}
+            },
+            "door_lock": {
+                "description": "Lock or unlock a door",
+                "parameters": {"door_id": "int", "locked": "bool"}
+            },
+            "visual_lock": {
+                "description": "Set visual lock on player position",
+                "parameters": {"position": "tuple", "confidence": "float"}
+            }
+        }
+        
+        for tool_name, schema in tool_schemas.items():
+            self.swarm_mcp.cache_tool_schema(tool_name, schema)
+    
+    def _initialize_agent_zones(self) -> None:
+        """Initialize adjacent zones for each agent (selective context)."""
+        # Zone adjacency map (simplified)
+        zone_adjacency = {
+            0: {1, 2},  # Entrance Hall
+            1: {0, 3, 4},  # Corridor
+            2: {0, 5},  # Another corridor
+            3: {1, 6},  # Room
+            4: {1, 7},  # Room
+            5: {2, 8},  # Room
+            6: {3, 9},  # Room
+            7: {4, 10},  # Room
+            8: {5, 11},  # Room
+            9: {6, 12},  # Attic
+            10: {7, 13},  # Basement
+            11: {8, 14},  # Room
+            12: {9, 15},  # Room
+            13: {10, 16},  # Wine Cellar
+            14: {11, 17},  # Room
+            15: {12, 18},  # Nursery
+            16: {13, 19},  # Ballroom
+            17: {14, 20},  # Room
+            18: {15, 21},  # Catacombs
+            19: {16, 22},  # Hall of Mirrors
+            20: {17, 23},  # Room
+            21: {18, 24},  # Room
+            22: {19, 25},  # Room
+            23: {20, 26},  # Room
+            24: {21, 27},  # Room
+            25: {22, 28},  # Room
+            26: {23, 29},  # Room
+            27: {24},  # Room
+            28: {25},  # Research Chamber
+            29: {26}  # The Void
+        }
+        
+        # Assign adjacent zones to each agent
+        for agent_id in range(self.num_agents):
+            # Start with all zones, will be filtered dynamically
+            self.swarm_mcp.set_adjacent_zones(agent_id, set(range(30)))
+    
+    def coordinate_swarm_2026(
+        self,
+        current_tick: int,
+        player_position: Tuple[int, int],
+        agent_positions: Dict[int, Tuple[int, int]],
+        agent_zones: Dict[int, int]
+    ) -> Dict[str, Any]:
+        """
+        2026 High-Speed coordination loop with MCP integration.
+        Combines Conductor coordination with MCP event-driven architecture.
+        """
+        # First, update MCP with current state
+        mcp_status = self.swarm_mcp.update_mcp_2026(
+            current_tick, player_position, agent_positions, agent_zones
+        )
+        
+        # Check for visual lock from blackboard (A2A communication)
+        visual_lock = self.swarm_mcp.get_visual_lock()
+        if visual_lock:
+            # Use visual lock position instead of estimated player position
+            player_position = visual_lock["player_position"]
+        
+        # Run standard coordination
+        coordination_result = self.coordinate_swarm(
+            current_tick, player_position, agent_positions, list(agent_zones.keys())
+        )
+        
+        # Calculate joint reward at MCP level (QMIX monotonicity)
+        if self.temporal_credit.active_goals:
+            active_goal = list(self.temporal_credit.active_goals.values())[0]
+            individual_rewards = {
+                aid: self.swarm_mcp.agent_individual_rewards.get(aid, 0.0)
+                for aid in agent_zones.keys()
+            }
+            
+            mcp_reward = self.swarm_mcp.calculate_mcp_joint_reward(
+                list(agent_zones.keys()),
+                individual_rewards,
+                active_goal.progress
+            )
+            
+            coordination_result["mcp_joint_reward"] = mcp_reward["joint_reward"]
+            coordination_result["mcp_monotonicity"] = mcp_reward["monotonicity_satisfied"]
+        
+        # Add MCP status to result
+        coordination_result["mcp_status"] = mcp_status
+        
+        return coordination_result
+
+
+# ── Conductor AI: Manager-Worker Architecture ─────────────────────────────────────
+# Implements 2026 coordination fixes: Temporal Credit Assignment, SeqComm,
+# Leader-Following, Goal Partitioning, QMIX Monotonicity, Conflict Resolution
+
+# Conductor Configuration
+@dataclass
+class ConductorConfig:
+    # Temporal Credit Assignment settings
+    GOAL_DURATION_TICKS: int = 1800  # 30 seconds at 60 ticks/sec
+    GOAL_EVALUATION_INTERVAL: int = 300  # Evaluate every 5 seconds
+    
+    # SeqComm Priority Negotiation settings
+    NEGOTIATION_INTERVAL: int = 60  # Negotiate every 1 second
+    PRIORITY_DECAY: float = 0.95
+    VALUE_INTENTION_THRESHOLD: float = 0.7
+    
+    # Leader-Following settings
+    LEADER_ASSIGNMENT_INTERVAL: int = 600  # Reassign every 10 seconds
+    FOLLOWER_SUPPORT_DISTANCE: float = 5.0
+    
+    # Goal Partitioning settings
+    SUB_POLICY_COUNT: int = 4
+    POLICY_SWITCH_COOLDOWN: int = 120
+    
+    # QMIX-style Monotonicity settings
+    MONOTONICITY_WEIGHT: float = 0.8
+    INDIVIDUAL_REWARD_WEIGHT: float = 0.2
+    
+    # Conflict Resolution settings
+    ASYNC_NEGOTIATION_TIMEOUT: int = 30
+    CONFLICT_RESOLUTION_PRIORITY: List[str] = field(default_factory=lambda: ["leader", "value_intention", "proximity"])
+
+
+# High-Level Goal Types
+class GoalType(Enum):
+    SECURE_EXIT = "secure_exit"
+    ENCIRCLE_PLAYER = "encircle_player"
+    FLUSH_PLAYER = "flush_player"
+    PATROL_ZONE = "patrol_zone"
+    AMBUSH_PATH = "ambush_path"
+    BLOCK_CORRIDOR = "block_corridor"
+
+
+# Sub-Policy Types (Goal Partitioning)
+class SubPolicy(Enum):
+    CHASE = "chase"
+    FLANK = "flank"
+    PATROL = "patrol"
+    AMBUSH = "ambush"
+    SUPPORT = "support"
+    BLOCK = "block"
+
+
+# Agent Role Types for Conductor
+class ConductorAgentRole(Enum):
+    LEADER = "leader"
+    FOLLOWER = "follower"
+    INDEPENDENT = "independent"
+
+
+# ── Temporal Credit Assignment Module ─────────────────────────────────────────────
+
+@dataclass
+class HighLevelGoal:
+    goal_id: int
+    goal_type: GoalType
+    target_position: Tuple[int, int]
+    duration_ticks: int
+    priority: float = 1.0
+    start_time: float = field(default_factory=time.time)
+    progress: float = 0.0
+    completed: bool = False
+    failed: bool = False
+    assigned_agents: Set[int] = field(default_factory=set)
+    
+    @property
+    def elapsed_ticks(self) -> int:
+        return int((time.time() - self.start_time) * 60)  # Approx 60 ticks/sec
+    
+    @property
+    def remaining_ticks(self) -> int:
+        return max(0, self.duration_ticks - self.elapsed_ticks)
+    
+    @property
+    def is_expired(self) -> bool:
+        return self.elapsed_ticks >= self.duration_ticks
+
+
+class TemporalCreditAssignment:
+    """
+    Solves the "delayed reward" problem by setting high-level goals that last
+    for 30 seconds and evaluating workers based on whether the goal was met.
+    """
+    
+    def __init__(self, config: ConductorConfig):
+        self.config = config
+        self.active_goals: Dict[int, HighLevelGoal] = {}
+        self.goal_history: List[Dict] = []
+        self.current_goal_id = 0
+    
+    def create_goal(
+        self,
+        goal_type: GoalType,
+        target_position: Tuple[int, int],
+        duration_ticks: int = None,
+        priority: float = 1.0
+    ) -> int:
+        """Create a new high-level goal."""
+        if duration_ticks is None:
+            duration_ticks = self.config.GOAL_DURATION_TICKS
+        
+        goal_id = self.current_goal_id
+        self.current_goal_id += 1
+        
+        goal = HighLevelGoal(
+            goal_id=goal_id,
+            goal_type=goal_type,
+            target_position=target_position,
+            duration_ticks=duration_ticks,
+            priority=priority
+        )
+        
+        self.active_goals[goal_id] = goal
+        return goal_id
+    
+    def assign_agent_to_goal(self, goal_id: int, agent_id: int) -> bool:
+        """Assign a worker (stalker) to a goal."""
+        goal = self.active_goals.get(goal_id)
+        if goal:
+            goal.assigned_agents.add(agent_id)
+            return True
+        return False
+    
+    def evaluate_goal(
+        self,
+        goal_id: int,
+        player_position: Tuple[int, int],
+        agent_positions: Dict[int, Tuple[int, int]]
+    ) -> Dict[str, Any]:
+        """Evaluate goal progress and calculate reward."""
+        goal = self.active_goals.get(goal_id)
+        if not goal:
+            return {"error": "Goal not found"}
+        
+        progress = 0.0
+        reward = 0.0
+        
+        if goal.goal_type == GoalType.SECURE_EXIT:
+            # Evaluate if exit is secured
+            dist_to_exit = self._distance_to(player_position, goal.target_position)
+            progress = 1.0 - min(1.0, dist_to_exit / 20.0)
+            reward = progress * goal.priority
+        
+        elif goal.goal_type == GoalType.ENCIRCLE_PLAYER:
+            # Evaluate if player is surrounded
+            surrounding_agents = self._count_surrounding_agents(
+                goal.assigned_agents, player_position, agent_positions
+            )
+            progress = min(1.0, surrounding_agents / 3.0)
+            reward = progress * goal.priority
+        
+        elif goal.goal_type == GoalType.FLUSH_PLAYER:
+            # Evaluate if player was moved toward target
+            dist_to_target = self._distance_to(player_position, goal.target_position)
+            progress = 1.0 - min(1.0, dist_to_target / 15.0)
+            reward = progress * goal.priority
+        
+        elif goal.goal_type == GoalType.PATROL_ZONE:
+            # Evaluate if zone is being patrolled
+            active_patrollers = len(goal.assigned_agents)
+            progress = min(1.0, active_patrollers / 2.0)
+            reward = progress * goal.priority
+        
+        else:
+            progress = goal.progress
+            reward = progress * goal.priority
+        
+        goal.progress = progress
+        if progress >= 1.0:
+            goal.completed = True
+        
+        return {
+            "goal_id": goal_id,
+            "progress": progress,
+            "reward": reward,
+            "completed": goal.completed,
+            "failed": goal.failed,
+            "remaining_ticks": goal.remaining_ticks
+        }
+    
+    def cleanup_expired_goals(self) -> List[Dict]:
+        """Remove expired or completed goals and return history."""
+        completed_goals = []
+        
+        for goal_id, goal in list(self.active_goals.items()):
+            if goal.is_expired or goal.completed or goal.failed:
+                completed_goals.append({
+                    "goal_id": goal_id,
+                    "goal_type": goal.goal_type.value,
+                    "progress": goal.progress,
+                    "completed": goal.completed,
+                    "failed": goal.failed,
+                    "duration": goal.elapsed_ticks
+                })
+                del self.active_goals[goal_id]
+        
+        self.goal_history.extend(completed_goals)
+        return completed_goals
+    
+    def _distance_to(self, pos1: Tuple[int, int], pos2: Tuple[int, int]) -> float:
+        return math.sqrt((pos1[0] - pos2[0])**2 + (pos1[1] - pos2[1])**2)
+    
+    def _count_surrounding_agents(
+        self,
+        agent_ids: Set[int],
+        player_pos: Tuple[int, int],
+        agent_positions: Dict[int, Tuple[int, int]]
+    ) -> int:
+        count = 0
+        for agent_id in agent_ids:
+            agent_pos = agent_positions.get(agent_id)
+            if agent_pos and self._distance_to(agent_pos, player_pos) < 5:
+                count += 1
+        return count
+
+
+# ── Sequential Decision-Making (SeqComm) Module ────────────────────────────────────
+
+@dataclass
+class AgentIntention:
+    agent_id: int
+    intention: str
+    value: float
+    timestamp: float = field(default_factory=time.time)
+
+
+class PriorityNegotiation:
+    """
+    Implements SeqComm to stop agents from "spinning in circles."
+    Determines which agent has the "highest value intention" and grants them
+    First Mover right, while others adjust their paths to support.
+    """
+    
+    def __init__(self, config: ConductorConfig):
+        self.config = config
+        self.agent_intentions: Dict[int, AgentIntention] = {}
+        self.negotiation_history: List[Dict] = []
+        self.current_round = 0
+    
+    def register_intention(self, agent_id: int, intention: str, value: float) -> None:
+        """Register an agent's intention with its value score."""
+        self.agent_intentions[agent_id] = AgentIntention(
+            agent_id=agent_id,
+            intention=intention,
+            value=value
+        )
+    
+    def negotiate(
+        self,
+        agent_ids: List[int],
+        player_position: Tuple[int, int],
+        agent_positions: Dict[int, Tuple[int, int]]
+    ) -> Dict[str, Any]:
+        """Run priority negotiation and return First Mover assignment."""
+        self.current_round += 1
+        
+        # Sort agents by value intention (highest first)
+        sorted_agents = []
+        for agent_id in agent_ids:
+            intention = self.agent_intentions.get(agent_id)
+            if intention and intention.value >= self.config.VALUE_INTENTION_THRESHOLD:
+                sorted_agents.append((agent_id, intention))
+        
+        sorted_agents.sort(key=lambda x: x[1].value, reverse=True)
+        
+        negotiation_result = {
+            "round": self.current_round,
+            "first_mover": None,
+            "followers": [],
+            "intentions": {},
+            "adjusted_intentions": {}
+        }
+        
+        if sorted_agents:
+            # Grant First Mover right to highest value intention
+            first_mover_id, first_mover_intention = sorted_agents[0]
+            followers = [aid for aid, _ in sorted_agents[1:]]
+            
+            negotiation_result["first_mover"] = first_mover_id
+            negotiation_result["followers"] = followers
+            negotiation_result["intentions"][first_mover_id] = first_mover_intention.intention
+            
+            # Adjust follower intentions to support
+            for follower_id, _ in followers:
+                support_intention = self._generate_support_intention(
+                    first_mover_intention.intention,
+                    player_position,
+                    agent_positions.get(follower_id, (0, 0))
+                )
+                self.agent_intentions[follower_id].intention = support_intention
+                negotiation_result["adjusted_intentions"][follower_id] = support_intention
+        
+        self.negotiation_history.append(negotiation_result)
+        return negotiation_result
+    
+    def _generate_support_intention(
+        self,
+        primary_intention: str,
+        player_pos: Tuple[int, int],
+        follower_pos: Tuple[int, int]
+    ) -> str:
+        """Generate supporting intention based on primary."""
+        support_map = {
+            "secure_exit": SubPolicy.BLOCK.value,
+            "encircle_player": SubPolicy.FLANK.value,
+            "flush_player": SubPolicy.SUPPORT.value,
+            "patrol_zone": SubPolicy.PATROL.value,
+            "ambush_path": SubPolicy.AMBUSH.value,
+        }
+        return support_map.get(primary_intention, SubPolicy.PATROL.value)
+    
+    def decay_intentions(self) -> None:
+        """Decay intention values over time."""
+        for intention in self.agent_intentions.values():
+            intention.value *= self.config.PRIORITY_DECAY
+
+
+# ── Leader-Following Dynamics Module ─────────────────────────────────────────────
+
+@dataclass
+class LeaderAssignment:
+    leader_id: int
+    follower_ids: List[int]
+    timestamp: float = field(default_factory=time.time)
+
+
+class LeaderFollowingSystem:
+    """
+    Designates one Stalker as the Leader for a specific chase, while others
+    are assigned as Followers. Reduces coordination cost and prevents redundant actions.
+    """
+    
+    def __init__(self, config: ConductorConfig):
+        self.config = config
+        self.agent_roles: Dict[int, ConductorAgentRole] = {}
+        self.leader_history: List[LeaderAssignment] = []
+        self.last_assignment: float = 0.0
+    
+    def assign_leader(self, leader_id: int, follower_ids: List[int]) -> None:
+        """Assign a leader and its followers."""
+        self.agent_roles[leader_id] = ConductorAgentRole.LEADER
+        for follower_id in follower_ids:
+            self.agent_roles[follower_id] = ConductorAgentRole.FOLLOWER
+        
+        self.last_assignment = time.time()
+        self.leader_history.append(LeaderAssignment(leader_id, follower_ids))
+    
+    def get_role(self, agent_id: int) -> ConductorAgentRole:
+        """Get the role of an agent."""
+        return self.agent_roles.get(agent_id, ConductorAgentRole.INDEPENDENT)
+    
+    def get_followers(self, leader_id: int) -> List[int]:
+        """Get all followers of a leader."""
+        followers = []
+        for agent_id, role in self.agent_roles.items():
+            if role == ConductorAgentRole.FOLLOWER:
+                followers.append(agent_id)
+        return followers
+    
+    def should_reassign(self) -> bool:
+        """Check if leader should be reassigned."""
+        return time.time() - self.last_assignment > self.config.LEADER_ASSIGNMENT_INTERVAL
+    
+    def calculate_support_position(
+        self,
+        leader_pos: Tuple[int, int],
+        player_pos: Tuple[int, int],
+        follower_index: int,
+        total_followers: int
+    ) -> Tuple[float, float]:
+        """Calculate flanking positions around the leader."""
+        # Calculate angle from leader to player
+        dx = player_pos[0] - leader_pos[0]
+        dy = player_pos[1] - leader_pos[1]
+        base_angle = math.atan2(dy, dx)
+        
+        # Distribute followers around the leader
+        angle_offset = (2 * math.pi * follower_index) / total_followers
+        angle = base_angle + angle_offset
+        
+        distance = self.config.FOLLOWER_SUPPORT_DISTANCE
+        
+        support_x = leader_pos[0] + math.cos(angle) * distance
+        support_y = leader_pos[1] + math.sin(angle) * distance
+        
+        return (support_x, support_y)
+    
+    def clear_assignments(self) -> None:
+        """Clear all role assignments."""
+        self.agent_roles.clear()
+
+
+# ── Goal Partitioning Module ───────────────────────────────────────────────────────
+
+@dataclass
+class SubPolicyAssignment:
+    agent_id: int
+    sub_policy: SubPolicy
+    goal_type: GoalType
+    assigned_at: float = field(default_factory=time.time)
+
+
+class GoalPartitioning:
+    """
+    Implements sub-policy selection based on player state.
+    Prevents all 4 agents from doing the same thing.
+    """
+    
+    def __init__(self, config: ConductorConfig):
+        self.config = config
+        self.agent_sub_policies: Dict[int, SubPolicyAssignment] = {}
+        self.policy_cooldowns: Dict[int, float] = {}
+    
+    def assign_sub_policy(
+        self,
+        agent_id: int,
+        sub_policy: SubPolicy,
+        goal_type: GoalType
+    ) -> bool:
+        """Assign a sub-policy to an agent."""
+        if self._is_on_cooldown(agent_id):
+            return False
+        
+        self.agent_sub_policies[agent_id] = SubPolicyAssignment(
+            agent_id=agent_id,
+            sub_policy=sub_policy,
+            goal_type=goal_type
+        )
+        
+        cooldown_end = time.time() + self.config.POLICY_SWITCH_COOLDOWN
+        self.policy_cooldowns[agent_id] = cooldown_end
+        return True
+    
+    def get_sub_policy(self, agent_id: int) -> SubPolicy:
+        """Get the current sub-policy for an agent."""
+        assignment = self.agent_sub_policies.get(agent_id)
+        return assignment.sub_policy if assignment else SubPolicy.PATROL
+    
+    def partition_goal(
+        self,
+        goal_type: GoalType,
+        agent_ids: List[int]
+    ) -> List[Dict[str, Any]]:
+        """Distribute sub-policies based on goal type."""
+        assignments = []
+        policy_distribution = self._get_policy_distribution(goal_type)
+        
+        for index, agent_id in enumerate(agent_ids):
+            sub_policy = policy_distribution[index % len(policy_distribution)]
+            success = self.assign_sub_policy(agent_id, sub_policy, goal_type)
+            
+            assignments.append({
+                "agent_id": agent_id,
+                "sub_policy": sub_policy.value,
+                "success": success
+            })
+        
+        return assignments
+    
+    def _get_policy_distribution(self, goal_type: GoalType) -> List[SubPolicy]:
+        """Get the policy distribution for a goal type."""
+        distributions = {
+            GoalType.SECURE_EXIT: [
+                SubPolicy.CHASE, SubPolicy.BLOCK, SubPolicy.BLOCK, SubPolicy.PATROL
+            ],
+            GoalType.ENCIRCLE_PLAYER: [
+                SubPolicy.CHASE, SubPolicy.FLANK, SubPolicy.FLANK, SubPolicy.AMBUSH
+            ],
+            GoalType.FLUSH_PLAYER: [
+                SubPolicy.CHASE, SubPolicy.SUPPORT, SubPolicy.SUPPORT, SubPolicy.PATROL
+            ],
+            GoalType.PATROL_ZONE: [
+                SubPolicy.PATROL, SubPolicy.PATROL, SubPolicy.PATROL, SubPolicy.PATROL
+            ],
+            GoalType.AMBUSH_PATH: [
+                SubPolicy.AMBUSH, SubPolicy.FLANK, SubPolicy.FLANK, SubPolicy.BLOCK
+            ],
+            GoalType.BLOCK_CORRIDOR: [
+                SubPolicy.BLOCK, SubPolicy.BLOCK, SubPolicy.SUPPORT, SubPolicy.PATROL
+            ],
+        }
+        return distributions.get(goal_type, [SubPolicy.PATROL] * 4)
+    
+    def _is_on_cooldown(self, agent_id: int) -> bool:
+        """Check if agent is on policy switch cooldown."""
+        cooldown_end = self.policy_cooldowns.get(agent_id)
+        return cooldown_end and time.time() < cooldown_end
+    
+    def cleanup_cooldowns(self) -> None:
+        """Clean up expired cooldowns."""
+        now = time.time()
+        expired = [aid for aid, end in self.policy_cooldowns.items() if now >= end]
+        for agent_id in expired:
+            del self.policy_cooldowns[agent_id]
+
+
+# ── Joint Reward Mixing (QMIX-style Monotonicity) Module ───────────────────────────
+
+@dataclass
+class RewardMixingResult:
+    joint_reward: float
+    individual_rewards: Dict[int, float]
+    monotonicity_satisfied: bool
+
+
+class QMIXRewardMixing:
+    """
+    Implements QMIX-style Monotonicity to ensure that an individual agent's
+    "win" actually helps the whole team.
+    """
+    
+    def __init__(self, config: ConductorConfig):
+        self.config = config
+        self.individual_rewards: Dict[int, float] = {}
+        self.joint_rewards: Dict[int, float] = {}
+        self.monotonicity_weights: Dict[int, float] = {}
+    
+    def record_individual_reward(self, agent_id: int, reward: float) -> None:
+        """Record an individual agent's reward."""
+        self.individual_rewards[agent_id] = reward
+    
+    def calculate_joint_reward(
+        self,
+        agent_ids: List[int],
+        goal_progress: float
+    ) -> RewardMixingResult:
+        """Calculate joint reward using QMIX monotonic mixing."""
+        # Weight individual rewards
+        weighted_individual = sum(
+            self.individual_rewards.get(aid, 0.0) * self.config.INDIVIDUAL_REWARD_WEIGHT
+            for aid in agent_ids
+        )
+        
+        # Weight joint goal progress
+        weighted_joint = goal_progress * self.config.MONOTONICITY_WEIGHT
+        
+        # Mix rewards
+        joint_reward = weighted_individual + weighted_joint
+        
+        # Check monotonicity: joint reward should increase with individual improvements
+        monotonicity_satisfied = self._check_monotonicity(agent_ids, joint_reward)
+        
+        result = RewardMixingResult(
+            joint_reward=joint_reward,
+            individual_rewards=self.individual_rewards.copy(),
+            monotonicity_satisfied=monotonicity_satisfied
+        )
+        
+        self.joint_rewards[time.time()] = joint_reward
+        return result
+    
+    def _check_monotonicity(self, agent_ids: List[int], current_joint: float) -> bool:
+        """Check if monotonicity constraint is satisfied."""
+        if len(self.joint_rewards) < 2:
+            return True
+        
+        # Get previous joint reward
+        prev_joint = list(self.joint_rewards.values())[-1]
+        
+        # Monotonicity: current should be >= previous if individual rewards increased
+        total_individual = sum(self.individual_rewards.get(aid, 0.0) for aid in agent_ids)
+        prev_total = sum(
+            self.individual_rewards.get(aid, 0.0) for aid in agent_ids
+        ) if len(self.individual_rewards) > 0 else 0
+        
+        if total_individual >= prev_total:
+            return current_joint >= prev_joint
+        
+        return True
+    
+    def get_reward_history(self) -> List[float]:
+        """Get history of joint rewards."""
+        return list(self.joint_rewards.values())
+
+
+# ── Conflict Resolution (Asynchronous Negotiation) Module ───────────────────────
+
+@dataclass
+class Conflict:
+    conflict_id: int
+    conflicting_agents: List[int]
+    conflict_type: str  # "tile_conflict", "path_conflict", "goal_conflict"
+    timestamp: float = field(default_factory=time.time)
+    resolved: bool = False
+
+
+class ConflictResolution:
+    """
+    Implements Asynchronous Negotiation to break "ties" where two agents
+    want the same tile or resource.
+    """
+    
+    def __init__(self, config: ConductorConfig):
+        self.config = config
+        self.active_conflicts: Dict[int, Conflict] = {}
+        self.conflict_history: List[Conflict] = []
+        self.current_conflict_id = 0
+    
+    def detect_conflict(
+        self,
+        agent_positions: Dict[int, Tuple[int, int]],
+        agent_goals: Dict[int, str]
+    ) -> List[Conflict]:
+        """Detect conflicts between agents."""
+        detected = []
+        
+        # Detect tile conflicts (agents targeting same position)
+        position_map: Dict[Tuple[int, int], List[int]] = {}
+        for agent_id, pos in agent_positions.items():
+            if pos not in position_map:
+                position_map[pos] = []
+            position_map[pos].append(agent_id)
+        
+        for pos, agents in position_map.items():
+            if len(agents) > 1:
+                conflict_id = self.current_conflict_id
+                self.current_conflict_id += 1
+                
+                conflict = Conflict(
+                    conflict_id=conflict_id,
+                    conflicting_agents=agents,
+                    conflict_type="tile_conflict"
+                )
+                self.active_conflicts[conflict_id] = conflict
+                detected.append(conflict)
+        
+        # Detect goal conflicts (agents with same goal type)
+        goal_map: Dict[str, List[int]] = {}
+        for agent_id, goal in agent_goals.items():
+            if goal not in goal_map:
+                goal_map[goal] = []
+            goal_map[goal].append(agent_id)
+        
+        for goal, agents in goal_map.items():
+            if len(agents) > 2:  # More than 2 agents on same goal
+                conflict_id = self.current_conflict_id
+                self.current_conflict_id += 1
+                
+                conflict = Conflict(
+                    conflict_id=conflict_id,
+                    conflicting_agents=agents,
+                    conflict_type="goal_conflict"
+                )
+                self.active_conflicts[conflict_id] = conflict
+                detected.append(conflict)
+        
+        return detected
+    
+    def resolve_conflict(
+        self,
+        conflict: Conflict,
+        agent_roles: Dict[int, ConductorAgentRole],
+        agent_values: Dict[int, float]
+    ) -> Dict[str, Any]:
+        """Resolve a conflict using priority-based negotiation."""
+        resolution = {
+            "conflict_id": conflict.conflict_id,
+            "resolution_type": None,
+            "winner": None,
+            "losers": [],
+            "adjustments": {}
+        }
+        
+        # Apply conflict resolution priority
+        for priority in self.config.CONFLICT_RESOLUTION_PRIORITY:
+            if priority == "leader":
+                # Leader wins
+                for agent_id in conflict.conflicting_agents:
+                    if agent_roles.get(agent_id) == ConductorAgentRole.LEADER:
+                        resolution["winner"] = agent_id
+                        resolution["resolution_type"] = "leader_priority"
+                        break
+            
+            elif priority == "value_intention" and resolution["winner"] is None:
+                # Highest value intention wins
+                sorted_agents = sorted(
+                    conflict.conflicting_agents,
+                    key=lambda aid: agent_values.get(aid, 0.0),
+                    reverse=True
+                )
+                if sorted_agents:
+                    resolution["winner"] = sorted_agents[0]
+                    resolution["resolution_type"] = "value_priority"
+            
+            elif priority == "proximity" and resolution["winner"] is None:
+                # Closest to target wins (simplified: first in list)
+                if conflict.conflicting_agents:
+                    resolution["winner"] = conflict.conflicting_agents[0]
+                    resolution["resolution_type"] = "proximity_priority"
+            
+            if resolution["winner"] is not None:
+                break
+        
+        # Set losers and adjustments
+        if resolution["winner"]:
+            resolution["losers"] = [
+                aid for aid in conflict.conflicting_agents if aid != resolution["winner"]
+            ]
+            for loser in resolution["losers"]:
+                resolution["adjustments"][loser] = "retreat_or_support"
+        
+        conflict.resolved = True
+        self.conflict_history.append(conflict)
+        del self.active_conflicts[conflict.conflict_id]
+        
+        return resolution
+    
+    def cleanup_stale_conflicts(self) -> List[Conflict]:
+        """Remove conflicts that have timed out."""
+        stale = []
+        now = time.time()
+        
+        for conflict_id, conflict in list(self.active_conflicts.items()):
+            if now - conflict.timestamp > self.config.ASYNC_NEGOTIATION_TIMEOUT:
+                stale.append(conflict)
+                del self.active_conflicts[conflict_id]
+        
+        return stale
 
 
 # ── Agent Roles (Elite Trio) ─────────────────────────────────────────────────────
@@ -2975,4 +4604,21 @@ __all__ = [
     'create_stalker_ai',
     'create_stalker_ai_custom',
     'ZONES',
+    # 2026 Conductor AI exports
+    'ConductorConfig',
+    'GoalType',
+    'SubPolicy',
+    'ConductorAgentRole',
+    'HighLevelGoal',
+    'TemporalCreditAssignment',
+    'AgentIntention',
+    'PriorityNegotiation',
+    'LeaderAssignment',
+    'LeaderFollowingSystem',
+    'SubPolicyAssignment',
+    'GoalPartitioning',
+    'RewardMixingResult',
+    'QMIXRewardMixing',
+    'Conflict',
+    'ConflictResolution',
 ]
