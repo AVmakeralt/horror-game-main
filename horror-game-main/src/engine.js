@@ -5,7 +5,7 @@ import {
   noteHideSpot,
   notePathSpot,
   stepStalker,
-} from "./enemy.js";
+} from "./stalker.js";
 import {
   addTransformation,
   createTransformState,
@@ -25,6 +25,47 @@ import {
   PLAYER_FRAMES,
 } from "./number-grid-sprites.js";
 import { TileRenderer, LightingSystem, ParticleSystem, PALETTE } from "./art-system.js";
+import {
+  GAMEPLAY_CONFIG,
+  createPlayerState,
+  createInputState,
+  handleKeyDown,
+  handleKeyUp,
+  updatePlayer as updatePlayerGameplay,
+  updateTransformations as updateTransformationsGameplay,
+  collectKey,
+  checkWinCondition,
+  checkLoseCondition,
+  progressToNextZone,
+  isExitTile,
+  isFakeExitTile,
+  isKeyTile,
+} from "./gameplay.js";
+import {
+  STALKER_CONFIG,
+  createStalker as createStalkerAI,
+  createStalkerState,
+  updateStalker as updateStalkerAI,
+  updateAIState,
+  updateSensoryMemory,
+  checkLineOfSight as checkLineOfSightAI,
+  checkHearing as checkHearingAI,
+  findPath,
+  updatePath,
+  calculateStalkerSpeed,
+  canStalkerMoveTo,
+  moveStalkerTowardTarget,
+  moveStalkerPatrol,
+  moveStalkerAlongPath,
+  smoothStalkerPosition,
+  getStalkerFacing,
+  getStalkerPosition,
+  getStalkerRenderPosition,
+  isStalkerConfused,
+  confuseStalker,
+  noteStalkerHideSpot,
+  noteStalkerPathSpot,
+} from "./stalker-ai.js";
 
 const TILE = 64;
 const CHALLENGE_MODE = true;
