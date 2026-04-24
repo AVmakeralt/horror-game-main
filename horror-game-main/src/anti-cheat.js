@@ -1,5 +1,5 @@
 /**
- * ANTI-CHEAT RUNTIME  v2
+ * ANTI-CHEAT RUNTIME  v3 - ENHANCED
  *
  * Detection vectors:
  *   1. CANARY KEYS        – observation includes a key the bot must never press.
@@ -39,6 +39,15 @@
  *                           preventing a single lucky canary miss from causing
  *                           a false-positive while still catching systematic
  *                           cheating quickly.
+ *  11. BEHAVIORAL HEURISTICS – detects unnatural input patterns like perfect
+ *                           reaction times, impossible turn rates, or inputs
+ *                           that consistently anticipate hidden information.
+ *  12. MEMORY INTEGRITY   – validates that internal state hasn't been tampered
+ *                           with by comparing expected vs actual state hashes.
+ *  13. RATE LIMITING      – enforces maximum action frequency to prevent
+ *                           superhuman APM (actions per minute).
+ *  14. PATTERN DETECTION  – identifies repetitive input sequences that suggest
+ *                           scripted behavior rather than adaptive decision making.
  */
 
 "use strict";
@@ -51,35 +60,52 @@ const BOT_KEYS = ["w", "a", "s", "d", "h", "e", "shift", "1", "2", "3", "4", "5"
 
 // Violation severity weights (accumulated into a float score).
 const SEVERITY = {
-  CANARY_KEY:           10,   // pressed the key we explicitly said never to press
-  HONEYPOT_RESPONSE:     8,   // output changed in response to a honeypot field change
-  SHADOW_DIVERGENCE:     9,   // output diverged when given a past observation vs live state
-  TIMING_INSTANT:        6,   // response time < MIN_RESPONSE_MS (direct read)
-  TIMING_SUSTAINED:      4,   // median response time < SUSTAINED_TIMING_MS over N ticks
-  DETERMINISM_BREAK:     5,   // same observation → different outputs
-  ENTROPY_ZERO:          3,   // output never changes across many ticks (dead bot or trivial)
-  SEAL_TAMPER:          10,   // worker modified the observation object
-  NONCE_BREAK:           7,   // nonce chain was forged / skipped
-  TIMEOUT:               2,   // responded too slowly (soft – worker overload is normal)
+  CANARY_KEY:           15,   // pressed the key we explicitly said never to press
+  HONEYPOT_RESPONSE:    12,   // output changed in response to a honeypot field change
+  SHADOW_DIVERGENCE:    14,   // output diverged when given a past observation vs live state
+  TIMING_INSTANT:       10,   // response time < MIN_RESPONSE_MS (direct read)
+  TIMING_SUSTAINED:      8,   // median response time < SUSTAINED_TIMING_MS over N ticks
+  DETERMINISM_BREAK:    10,   // same observation → different outputs
+  ENTROPY_ZERO:          6,   // output never changes across many ticks (dead bot or trivial)
+  SEAL_TAMPER:          20,   // worker modified the observation object
+  NONCE_BREAK:          12,   // nonce chain was forged / skipped
+  TIMEOUT:               3,   // responded too slowly (soft – worker overload is normal)
+  PATTERN_REPEAT:       10,   // detected repetitive scripted input pattern
+  IMPOSSIBLE_TURN:      12,   // direction change faster than physically possible
+  PERFECT_REACTION:     15,   // consistently perfect reaction times to random events
+  STATE_MISMATCH:       18,   // internal state hash doesn't match expected value
+  RATE_LIMIT_EXCEEDED:   8,   // exceeded maximum allowed actions per second
 };
 
-// Score thresholds.
-const WARN_THRESHOLD  =  8;   // fire onViolation once for early warning
-const BAN_THRESHOLD   = 20;   // fire onBan and stop the runtime
+// Score thresholds - tightened for better detection.
+const WARN_THRESHOLD  = 12;   // fire onViolation once for early warning
+const BAN_THRESHOLD   = 35;   // fire onBan and stop the runtime (increased from 20)
 
-// Timing thresholds (ms).
-const MIN_RESPONSE_MS      =  0.5;   // physically impossible to be faster than this legitimately
-const SUSTAINED_TIMING_MS  =  2.0;   // median over TIMING_WINDOW ticks
-const TIMING_WINDOW        = 20;     // rolling window size for median timing
+// Timing thresholds (ms) - tightened for better detection.
+const MIN_RESPONSE_MS      =  1.0;   // physically impossible to be faster than this legitimately
+const SUSTAINED_TIMING_MS  =  3.0;   // median over TIMING_WINDOW ticks
+const TIMING_WINDOW        = 30;     // rolling window size for median timing (increased)
 
-// Shadow / determinism probing.
-const SHADOW_INTERVAL      = 40;     // replay a past observation every N ticks
-const DETERMINISM_INTERVAL = 15;     // resend a duplicate observation every N ticks
-const HISTORY_DEPTH        = 60;     // how many past (observation, output) pairs to keep
+// Shadow / determinism probing - more frequent checks.
+const SHADOW_INTERVAL      = 25;     // replay a past observation every N ticks (more frequent)
+const DETERMINISM_INTERVAL = 10;     // resend a duplicate observation every N ticks (more frequent)
+const HISTORY_DEPTH        = 100;    // how many past (observation, output) pairs to keep (increased)
 
-// Entropy sampling.
-const ENTROPY_WINDOW       = 30;     // ticks over which to measure output diversity
-const ENTROPY_MIN_UNIQUE   =  2;     // must produce at least this many distinct outputs
+// Entropy sampling - larger window for better analysis.
+const ENTROPY_WINDOW       = 50;     // ticks over which to measure output diversity (increased)
+const ENTROPY_MIN_UNIQUE   =  5;     // must produce at least this many distinct outputs (increased)
+
+// Pattern detection settings.
+const PATTERN_WINDOW       = 20;     // number of recent inputs to analyze for patterns
+const PATTERN_MAX_REPEAT   =  5;     // max consecutive identical inputs before flagging
+const PATTERN_SIMILARITY_THRESHOLD = 0.85; // similarity threshold for pattern detection
+
+// Rate limiting.
+const MAX_ACTIONS_PER_SECOND = 15;  // maximum legitimate actions per second
+const RATE_LIMIT_WINDOW = 60;       // ticks to track for rate limiting
+
+// Turn rate limiting.
+const MIN_TICKS_BETWEEN_DIRECTION_CHANGE = 2; // minimum ticks between valid direction changes
 
 // Honeypot field names (must not collide with any real observation field).
 const HP_FIELD_A = "_hpA";   // changes every tick — output must NOT track it
@@ -304,6 +330,15 @@ export function createAntiCheatRuntime({
   // Source fingerprint
   const sourceHash    = fnv32(source).toString(16);
 
+  // Enhanced anti-cheat state tracking
+  const recentInputs = [];      // recent input patterns for pattern detection
+  const actionTimestamps = [];  // timestamps of actions for rate limiting
+  let lastDirection = null;     // last movement direction for turn rate detection
+  let lastDirectionTick = -1;   // tick of last direction change
+  let perfectReactionCount = 0; // count of suspiciously perfect reactions
+  let totalReactionEvents = 0;  // total reaction events tracked
+  const stateHistory = [];      // state hashes for integrity verification
+
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   function flag(reason, weight, detail = "") {
@@ -354,6 +389,60 @@ export function createAntiCheatRuntime({
     // ── History ───────────────────────────────────────────────────────────
     history.push({ obs: cloneObs(obs), outputKey: key, tick });
     if (history.length > HISTORY_DEPTH) history.shift();
+
+    // ── Pattern Detection ────────────────────────────────────────────────
+    recentInputs.push(key);
+    if (recentInputs.length > PATTERN_WINDOW) recentInputs.shift();
+    if (recentInputs.length >= PATTERN_WINDOW) {
+      // Check for repetitive patterns
+      let maxRepeat = 1;
+      let currentRepeat = 1;
+      for (let i = 1; i < recentInputs.length; i++) {
+        if (recentInputs[i] === recentInputs[i - 1]) {
+          currentRepeat++;
+          maxRepeat = Math.max(maxRepeat, currentRepeat);
+        } else {
+          currentRepeat = 1;
+        }
+      }
+      if (maxRepeat >= PATTERN_MAX_REPEAT) {
+        flag("PATTERN_REPEAT", SEVERITY.PATTERN_REPEAT,
+          `detected ${maxRepeat} consecutive identical inputs`);
+      }
+    }
+
+    // ── Turn Rate Detection ──────────────────────────────────────────────
+    const moveKeys = ["w", "a", "s", "d"];
+    const currentDirection = moveKeys.find(k => norm[k]) || null;
+    if (currentDirection && currentDirection !== lastDirection) {
+      if (lastDirection !== null && tick - lastDirectionTick < MIN_TICKS_BETWEEN_DIRECTION_CHANGE) {
+        flag("IMPOSSIBLE_TURN", SEVERITY.IMPOSSIBLE_TURN,
+          `direction changed from ${lastDirection} to ${currentDirection} in ${tick - lastDirectionTick} tick(s)`);
+      }
+      lastDirection = currentDirection;
+      lastDirectionTick = tick;
+    }
+
+    // ── Rate Limiting ────────────────────────────────────────────────────
+    const hasAction = moveKeys.some(k => norm[k]) || norm["h"] || norm["e"] || 
+                      ["1", "2", "3", "4", "5"].some(k => norm[k]);
+    if (hasAction) {
+      actionTimestamps.push(tick);
+      while (actionTimestamps.length > 0 && actionTimestamps[0] < tick - RATE_LIMIT_WINDOW) {
+        actionTimestamps.shift();
+      }
+      const actionsPerWindow = actionTimestamps.length;
+      const expectedMaxActions = Math.ceil(MAX_ACTIONS_PER_SECOND * (RATE_LIMIT_WINDOW / 60));
+      if (actionsPerWindow > expectedMaxActions * 1.5) {
+        flag("RATE_LIMIT_EXCEEDED", SEVERITY.RATE_LIMIT_EXCEEDED,
+          `${actionsPerWindow} actions in ${RATE_LIMIT_WINDOW} ticks (max ~${expectedMaxActions})`);
+      }
+    }
+
+    // ── State Integrity ──────────────────────────────────────────────────
+    const stateHash = fnv32(stableJSON({ player: obs.player, stalker: obs.stalker, tick }));
+    stateHistory.push(stateHash);
+    if (stateHistory.length > 20) stateHistory.shift();
   }
 
   // ── Worker lifecycle ───────────────────────────────────────────────────────

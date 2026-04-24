@@ -3,15 +3,17 @@
 
 export const GAMEPLAY_CONFIG = {
   // Movement settings
-  FLOOR_ROW: 5,
+  FLOOR_ROW: 15,  // Center of the new larger map (30 rows total)
   BASE_MOVE_COOLDOWN: 4,
   MIN_MOVE_COOLDOWN: 2,
   SPRINT_BONUS: 2,
   VISUAL_SMOOTHING: 0.35,
   
-  // Map bounds
+  // Map bounds - updated for larger map
   MIN_X: 1,
-  MAX_X: 26,
+  MAX_X: 58,  // Updated from 26 to 58 for larger map
+  MIN_Y: 1,
+  MAX_Y: 28,  // New Y bounds for larger map
   
   // Hide settings
   HIDE_ANIMATION_DURATION: 14,
@@ -145,19 +147,20 @@ export function calculateMoveCooldown(player, transformState, sprinting) {
 }
 
 export function canMoveTo(x, y, tileAt) {
-  // Check bounds
+  // Check bounds - now supports full 2D movement
   if (x < GAMEPLAY_CONFIG.MIN_X || x > GAMEPLAY_CONFIG.MAX_X) return false;
-  
+  if (y < GAMEPLAY_CONFIG.MIN_Y || y > GAMEPLAY_CONFIG.MAX_Y) return false;
+
   // Check tile collision
   const tile = tileAt(x, y);
   const blockedTiles = [1, 8, 14]; // wall, block, door
   return !blockedTiles.includes(tile);
 }
 
-export function updatePlayerPosition(player, dx, tileAt) {
+export function updatePlayerPosition(player, dx, dy, tileAt) {
   const nx = player.x + dx;
-  const ny = GAMEPLAY_CONFIG.FLOOR_ROW;
-  
+  const ny = player.y + dy;
+
   if (canMoveTo(nx, ny, tileAt)) {
     player.x = nx;
     player.y = ny;
@@ -169,13 +172,12 @@ export function updatePlayerPosition(player, dx, tileAt) {
 export function smoothPlayerPosition(player) {
   const smoothing = GAMEPLAY_CONFIG.VISUAL_SMOOTHING;
   player.renderX += (player.x - player.renderX) * smoothing;
-  player.renderY += (GAMEPLAY_CONFIG.FLOOR_ROW - player.renderY) * smoothing;
-  
+  player.renderY += (player.y - player.renderY) * smoothing;
+
   // Snap when close
   if (Math.abs(player.renderX - player.x) < 0.01) player.renderX = player.x;
-  if (Math.abs(player.renderY - GAMEPLAY_CONFIG.FLOOR_ROW) < 0.01) player.renderY = GAMEPLAY_CONFIG.FLOOR_ROW;
+  if (Math.abs(player.renderY - player.y) < 0.01) player.renderY = player.y;
 }
-
 // ── Hide Mechanics ───────────────────────────────────────────────────────────
 
 export const HIDING_TILES = [2, 6, 10, 11, 15, 17, 20, 21, 23];
@@ -347,16 +349,20 @@ export function updatePlayer(player, input, tileAt, transformState, tick, tools,
   
   // Calculate movement direction
   let dx = 0;
+  let dy = 0;
+  if (normalizedInput.a) dx = -1;  // left
+  if (normalizedInput.d) dx = 1;   // right
+  if (normalizedInput.w) dy = -1;  // up
+  if (normalizedInput.s) dy = 1;   // down
   if (normalizedInput.a) dx = -1;
-  if (normalizedInput.d) dx = 1;
-  
   // Update facing
   if (dx < 0) player.facing = "left";
   else if (dx > 0) player.facing = "right";
   
   // Apply hallucination scatter
-  if (dx > 0 && hallucinationStacks > 0 && Math.random() < GAMEPLAY_CONFIG.HALLUCINATION_SCATTER_CHANCE * hallucinationStacks) {
-    dx *= Math.random() < 0.5 ? -1 : 1;
+  if ((dx !== 0 || dy !== 0) && hallucinationStacks > 0 && Math.random() < GAMEPLAY_CONFIG.HALLUCINATION_SCATTER_CHANCE * hallucinationStacks) {
+    if (Math.random() < 0.5) dx *= -1;
+    else dy *= -1;
   }
   
   // Calculate movement cooldown
@@ -365,8 +371,8 @@ export function updatePlayer(player, input, tileAt, transformState, tick, tools,
   
   // Execute movement
   let moved = false;
-  if (dx && tick >= player.moveTick) {
-    const positionChanged = updatePlayerPosition(player, dx, tileAt);
+  if ((dx !== 0 || dy !== 0) && tick >= player.moveTick) {
+    const positionChanged = updatePlayerPosition(player, dx, dy, tileAt);
     
     if (positionChanged) {
       player.lastMoveTick = tick;
