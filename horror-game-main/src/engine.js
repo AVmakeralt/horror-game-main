@@ -3936,7 +3936,7 @@ export function createGame(canvas) {
       ctx.fillStyle = "#4080c0"; ctx.fillRect(370, F-70, 4, 8); // continent
       ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.beginPath(); ctx.arc(372, F-72, 3, 0, Math.PI*2); ctx.fill();
       ctx.lineWidth=1;
-    }
+    } else if (zid === "bedroom") {
       const F = canvas.height;
       // ── Bed frame with headboard ─────────────────────────────────────────
       ctx.fillStyle = "#3e2a1e"; ctx.fillRect(42, F-80, 130, 10); // headboard top
@@ -4028,7 +4028,7 @@ export function createGame(canvas) {
         ctx.fillStyle = bookColors[b]; ctx.fillRect(392+b*13, 28, 10, 8);
         ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.fillRect(392+b*13+1, 29, 2, 1);
       }
-    } if (zid === "laundry") {
+    } else if (zid === "laundry") {
       const F = canvas.height;
       // ── Washing machine (front loader) ────────────────────────────────────
       ctx.fillStyle = "#8090a0"; ctx.fillRect(34, F-78, 54, 44);
@@ -5070,3 +5070,4 @@ export function createGame(canvas) {
       return getBotObservation();
     },
   };
+}
