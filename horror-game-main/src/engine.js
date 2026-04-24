@@ -532,31 +532,6 @@ function buildZoneMap(zoneIndex) {
       break;
     }
 
-    // ── DEFAULT / Later Zones: Dense maze with maximum objects ─────────────
-    default: {
-      carve(1, 1, 30, 8);
-      // Dense obstacle pattern
-      for (let x = 4; x <= 28; x += 4) {
-        set(x, 2, 1); set(x, 4, 1); set(x, 6, 1);
-      }
-      for (let y = 3; y <= 7; y += 2) {
-        set(8, y, 1); set(16, y, 1); set(24, y, 1);
-      }
-      obj(2, 5, 12);
-      // Maximum objects in every available space
-      obj(3, 2, 2);   obj(3, 7, 2);   obj(5, 4, 15);   obj(7, 3, 17);
-      obj(9, 6, 2);   obj(11, 2, 20); obj(13, 5, 2);   obj(15, 7, 15);
-      obj(17, 3, 17); obj(19, 6, 2);  obj(21, 2, 21);  obj(23, 5, 22);
-      obj(25, 7, 2);  obj(27, 3, 23); obj(29, 6, 24);  obj(6, 5, 19);
-      obj(10, 3, 11); obj(14, 7, 2);  obj(18, 4, 12);  obj(22, 6, 2);
-      obj(26, 2, 20); obj(30, 4, 2);
-      set(30, 5, 5);
-      break;
-    }
-  }
-
-  return map;
-}
     case 9: {
       carve(1, 1, 4, 8);             // left spine
       carve(1, 4, 26, 5);           // center spoke
@@ -1504,26 +1479,33 @@ const ZONE_NOTE_TABLETS = {
 };
 
 const NOTE_LORE = [
-  "He waits where the shadows end.",
-  "The footprints never go outside.",
-  "He doesn’t knock. He just knows.",
-  "Every reflection hides his grin.",
-  "I heard the dog last night, and then nothing.",
-  "This house was never empty, even when it was.",
-  "The previous owners… they whispered too much.",
-  "Rooms remember footsteps that aren’t yours.",
-  "I sealed the basement, but it always finds a way.",
-  "Paint peels where he touched.",
-  "Dinner was set, but no one came.",
-  "I found a toy in the attic. The family it belonged to… gone.",
-  "He likes to watch before he chooses.",
-  "There are smells that linger even after bodies are gone.",
-  "The phone lines still ring… to nothing.",
-  "He knows your name. He always knows.",
-  "Don’t trust mirrors. Don’t trust silence.",
-  "The lights flicker… but it’s not the electricity.",
-  "Close the doors, but leave one… he prefers invitations.",
-  "By the time you read this… he’s already in the next room.",
+  // Phase 1: Childhood Abuse (Parents as Stalkers)
+  "The belt left marks that never healed. Mother called it discipline. I called it survival.",
+  "Father's footsteps echo in my skull. Heavy. Predictable. Inevitable.",
+  "I hid in the closet again. They always found me. They always do.",
+  "The bruises fade, but the footsteps don't. They're here. They're always here.",
+  "Mother said I was broken. Father said I was worthless. I believed them both.",
+
+  // Phase 2: The Lab - Betrayal and Imprisonment
+  "They sold me. My own parents. For science. For money. For peace from their mistake.",
+  "The facility has no windows. No escape. Only white walls and the smell of disinfectant.",
+  "Subject 734. That's my name now. My old one was taken with my clothes.",
+  "The cells here are soundproof. No one hears screaming. No one but the others.",
+  "Dr. Vance watches me through the glass. He smiles when I cry. He takes notes.",
+
+  // Phase 3: The Experiments - Injections and Transformation
+  "The needle enters my spine. Cold. Then fire. Then something worse than either.",
+  "My blood turns silver in the vials. They say that's progress. I say that's poison.",
+  "The other subjects stopped screaming yesterday. Now they're quiet. Now they're gone.",
+  "My skin peels in places. Underneath... underneath isn't skin anymore.",
+  "I can see through walls now. I can see them coming. I can see everything.",
+
+  // Phase 4: Reality Warps - The World Fractures
+  "The corridors shift when I blink. The exit is never where I left it.",
+  "Three of them hunt me now. The Mother. The Biologist. The Lead Scientist. They wear faces I know.",
+  "I vomited this morning. It wasn't food. It was... threads? Wires? Reality unspooling?",
+  "The injections don't stop. Even when I run, I feel the needle. It's inside me now. Permanent.",
+  "I hear them calling my subject number. 734. 734. Soon there will be nothing else to call.",
 ];
 
 export function createGame(canvas) {
@@ -1659,6 +1641,7 @@ export function createGame(canvas) {
     mandatoryCorruptionMet: false,
     completed: false,
     ending: null,
+    cutscene: null, // { phase: 'intro'|'main'|'outro', progress: 0, tick: 0 }
     paused: false,
     uiText: "",
     flickerTimer: 0,
@@ -2832,7 +2815,7 @@ export function createGame(canvas) {
     if (cl <= 9 && ae <= 12 && sr >= 60) {
       return { id: "corrupted", title: "Ending B — Corrupted", text: "You survive, but something remains behind your eyes." };
     }
-    return { id: "consumed", title: "Ending C — Consumed", text: "The house keeps your silhouette. You were never here." };
+    return { id: "consumed", title: "Ending C — Consumed", text: "i was... once human, but i feel my life slipping away, into oblivion, to sleep, to die" };
   }
 
   function progressZone() {
