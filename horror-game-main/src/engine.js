@@ -1704,6 +1704,41 @@ export function createGame(canvas) {
       actionCooldown: {},       // { [actionId]: ticksRemaining }
       log: [],                  // short rolling log of applied actions (debug)
     },
+
+    // ── Bot runtime state ────────────────────────────────────────────────────
+    bot: {
+      enabled: false,
+      name: "",
+      hash: "",
+      input: {},
+      lastError: "",
+      locked: false,
+    },
+    runAttributes: {
+      bot: {
+        mode: "none",
+        name: "",
+        hash: "",
+        disabled: false,
+        violations: 0,
+        integrity: "unknown",
+      },
+    },
+
+    // ── Chess overlay state ──────────────────────────────────────────────────
+    chess: {
+      open: false,
+      board: null,
+      turn: "w",
+      selected: null,
+      legalDests: [],
+      lastMove: null,
+      thinking: false,
+      gameOver: false,
+      message: "",
+      stockfish: null,
+      sfReady: false,
+    },
   };
 
   const tileAt = (x, y) => {

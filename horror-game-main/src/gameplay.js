@@ -502,25 +502,3 @@ export function progressToNextZone(gameState) {
   }
   return false;
 }
-
-// ── Export all systems ───────────────────────────────────────────────────────
-
-export {
-  GAMEPLAY_CONFIG,
-  createPlayerState,
-  createInputState,
-  handleKeyDown,
-  handleKeyUp,
-  updatePlayer,
-  updateTransformations,
-  collectKey,
-  checkWinCondition,
-  checkLoseCondition,
-  progressToNextZone,
-  canProgressToNextZone,
-  isWalkableTile,
-  isBlockedTile,
-  isExitTile,
-  isFakeExitTile,
-  isKeyTile,
-};

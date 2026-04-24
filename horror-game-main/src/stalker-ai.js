@@ -537,31 +537,3 @@ export function noteStalkerPathSpot(stalker, x, y) {
     stalker.knownPathSpots.push(key);
   }
 }
-
-// ── Export all systems ───────────────────────────────────────────────────────
-
-export {
-  STALKER_CONFIG,
-  createStalker,
-  createStalkerState,
-  updateStalker,
-  updateAIState,
-  updateSensoryMemory,
-  checkLineOfSight,
-  checkHearing,
-  findPath,
-  updatePath,
-  calculateStalkerSpeed,
-  canStalkerMoveTo,
-  moveStalkerTowardTarget,
-  moveStalkerPatrol,
-  moveStalkerAlongPath,
-  smoothStalkerPosition,
-  getStalkerFacing,
-  getStalkerPosition,
-  getStalkerRenderPosition,
-  isStalkerConfused,
-  confuseStalker,
-  noteStalkerHideSpot,
-  noteStalkerPathSpot,
-};
