@@ -1,6 +1,7 @@
 import { createGame, createCustomMap, LAB_HOME_TEMPLATES, GAME_VERSION } from "./engine.js";
 import { createAntiCheatRuntime } from "./anti-cheat.js";
 import { createModManager } from "./mod-system.js";
+import { registerConsoleCommands } from "./console-commands.js";
 
 const SAVE_KEY = "horror-game-save-v1";
 const CRASH_KEY = "horror-game-last-crash-v1";
