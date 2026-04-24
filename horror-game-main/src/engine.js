@@ -341,8 +341,8 @@ const TOTAL_KEYS = KEY_LOCATIONS.length; // 8
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildZoneMap(zoneIndex) {
-  const w = 60;  // Increased from 28 to 60 for a much larger map
-  const h = 30;  // Increased from 10 to 30 for a much larger map
+  const w = 32;  // Width optimized for MCTS
+  const h = 10;  // Height optimized for MCTS
   const map = new Array(w * h).fill(1);
   const set  = (x, y, t) => { if (x >= 0 && y >= 0 && x < w && y < h) map[y * w + x] = t; };
   const carve = (x0, y0, x1, y1) => {
@@ -351,258 +351,212 @@ function buildZoneMap(zoneIndex) {
   const door  = (x, y) => set(x, y, 14);
   const obj   = (x, y, t) => set(x, y, t);
 
-  // Player always spawns at (1,1); exit always on the right edge.
+  // Player spawns at (2, 5); exit on the right edge.
 
   switch (zoneIndex) {
 
     // ── ZONE 0: Entrance Hall ──────────────────────────────────────────────
-    // Wide open central spine + two alcoves each side.
+    // Wide open central spine with furniture islands and objects all around
     case 0: {
-      carve(1, 1, 58, 28);               // fully open hall
-      // Pillar islands break up the space - many more pillars
+      carve(1, 1, 30, 8);               // fully open hall
+      // Furniture islands and pillars throughout
       for (const [px, py] of [
-        [8,4],[8,6],[8,10],[8,12],[8,16],[8,18],[8,22],[8,24],
-        [15,3],[15,7],[15,11],[15,15],[15,19],[15,23],[15,27],
-        [22,4],[22,8],[22,12],[22,16],[22,20],[22,24],
-        [30,3],[30,7],[30,11],[30,15],[30,19],[30,23],[30,27],
-        [38,4],[38,8],[38,12],[38,16],[38,20],[38,24],
-        [45,3],[45,7],[45,11],[45,15],[45,19],[45,23],[45,27],
-        [52,4],[52,8],[52,12],[52,16],[52,20],[52,24]
+        [5,2],[5,6],[10,3],[10,5],[10,7],
+        [15,2],[15,4],[15,6],[15,8],
+        [20,3],[20,5],[20,7],
+        [25,2],[25,4],[25,6],[25,8]
       ]) set(px, py, 1);
-      obj(2, 1, 12);                    // safe spawn tile
-      // Many more hide spots around the room
-      obj(5, 5, 2);   obj(12, 8, 2);    obj(18, 3, 2);   obj(25, 12, 2);
-      obj(32, 6, 2);  obj(38, 15, 2);   obj(45, 9, 2);   obj(52, 20, 2);
-      obj(10, 25, 2); obj(20, 22, 2);   obj(35, 25, 2);  obj(48, 26, 2);
-      // Drawers and interactables
-      obj(4, 1, 15);  obj(13, 1, 15);   obj(22, 1, 15);  obj(31, 1, 15);
-      obj(40, 28, 15); obj(49, 28, 15); obj(56, 28, 15);
-      // Notes scattered around
-      obj(22, 4, 17); obj(16, 2, 17);   obj(30, 10, 17); obj(42, 8, 17);
-      obj(50, 15, 17); obj(35, 20, 17); obj(25, 25, 17);
-      // Ritual circles and special objects
-      obj(6, 26, 19); obj(28, 14, 19);  obj(55, 5, 19);
-      obj(18, 18, 20); obj(40, 22, 20); // vents
-      obj(12, 12, 21); obj(45, 3, 21);  // static TVs
-      obj(8, 20, 11);  obj(35, 8, 11);  // mirrors
-      set(58, 14, 5);                    // exit
+      obj(2, 5, 12);                    // safe spawn tile
+      // Many objects all around the room - furniture, decorations, interactables
+      obj(3, 2, 2);   obj(4, 7, 2);     obj(6, 3, 15);   obj(7, 6, 15);
+      obj(9, 2, 17);  obj(11, 7, 17);   obj(13, 3, 2);   obj(14, 6, 2);
+      obj(16, 2, 20); obj(17, 7, 20);   obj(19, 4, 15);  obj(21, 5, 17);
+      obj(23, 2, 2);  obj(24, 7, 2);    obj(26, 3, 19);  obj(28, 6, 21);
+      obj(3, 5, 11);  obj(8, 4, 11);    obj(12, 7, 23);  obj(18, 3, 18);
+      obj(22, 6, 22); obj(27, 4, 24);   obj(29, 7, 12);
+      set(30, 5, 5);                    // exit
       break;
     }
 
     // ── ZONE 1: The Corridor ───────────────────────────────────────────────
-    // Two long parallel corridors with multiple vertical shafts.
+    // Two long parallel corridors with vertical shafts and objects everywhere
     case 1: {
-      carve(1, 1, 58, 6);                // top corridor
-      carve(1, 23, 58, 28);              // bottom corridor
-      // Multiple vertical shafts connecting them
-      for (let sx = 5; sx <= 55; sx += 10) {
-        carve(sx, 6, sx, 23);
+      carve(1, 1, 30, 3);                // top corridor
+      carve(1, 6, 30, 8);                // bottom corridor
+      // Vertical shafts connecting them with objects
+      for (let sx = 6; sx <= 26; sx += 5) {
+        carve(sx, 3, sx, 6);
+        obj(sx, 4, 15);  // objects in shafts
+        obj(sx, 5, 17);
       }
-      // Alcoves off top corridor
-      carve(8, 1, 12, 3); carve(20, 1, 24, 3); carve(35, 1, 39, 3);
-      carve(48, 1, 52, 3);
-      // Alcoves off bottom corridor
-      carve(5, 25, 9, 28); carve(18, 25, 22, 28); carve(30, 25, 34, 28);
-      carve(42, 25, 46, 28); carve(53, 25, 57, 28);
-      obj(2, 1, 12);
-      // Hide spots in alcoves and shafts
-      obj(10, 2, 2);   obj(22, 2, 2);    obj(37, 2, 2);   obj(50, 2, 2);
-      obj(7, 26, 2);   obj(20, 26, 2);   obj(32, 26, 2);  obj(44, 26, 2);
-      obj(55, 26, 2);  obj(5, 14, 2);    obj(25, 14, 2);  obj(45, 14, 2);
-      obj(14, 1, 17);  obj(35, 28, 17);  obj(52, 1, 17);
-      obj(23, 2, 15);  obj(40, 26, 15);
-      // Static TVs in shafts
-      obj(15, 14, 21); obj(35, 14, 21);  obj(55, 14, 21);
-      // Doors at shaft entrances
-      door(5, 6);  door(5, 23);
-      door(15, 6); door(15, 23);
-      door(25, 6); door(25, 23);
-      door(35, 6); door(35, 23);
-      door(45, 6); door(45, 23);
-      door(55, 6); door(55, 23);
-      set(58, 1, 5);
+      obj(2, 5, 12);
+      // Objects along corridors
+      obj(3, 2, 2);   obj(5, 7, 2);     obj(8, 2, 15);   obj(10, 7, 15);
+      obj(13, 2, 17); obj(16, 7, 17);   obj(19, 2, 2);   obj(22, 7, 2);
+      obj(25, 2, 20); obj(28, 7, 20);   obj(4, 5, 21);   obj(14, 5, 19);
+      obj(24, 5, 22); obj(7, 1, 23);    obj(17, 8, 24);
+      set(30, 2, 5);
       break;
     }
 
     // ── ZONE 2: Living Room ─────────────────────────────────────────────────
-    // Open plan interrupted by furniture islands.
+    // Open plan with furniture islands and objects scattered throughout
     case 2: {
-      carve(1, 1, 58, 28);
-      // Three furniture-island walls
-      for (let x = 7; x <= 55;  x++) for (let y = 2; y <= 5; y++) set(x, y, 1);
-      for (let x = 7; x <= 55; x++) for (let y = 4; y <= 7; y++) set(x, y, 1);
-      for (let x = 7; x <= 55; x++) for (let y = 1; y <= 3; y++) set(x, y, 1);
-      // Poke doors through each island
-      set(8, 2, 0); set(15, 4, 0); set(22, 2, 0);
-      obj(2, 1, 12);
-      obj(2, 6, 2);   obj(11, 7, 2);  obj(25, 7, 2);
-      obj(4, 4, 17);  obj(18, 2, 17);
-      obj(5, 1, 19);  // ritual circle
-      obj(24, 6, 20); // vent
-      obj(12, 3, 21); // static TV
-      set(58, 4, 5);
+      carve(1, 1, 30, 8);
+      // Furniture island clusters
+      for (let x = 5; x <= 12; x++) set(x, 3, 1);
+      for (let x = 16; x <= 23; x++) set(x, 5, 1);
+      for (let x = 8; x <= 10; x++) set(x, 7, 1);
+      for (let x = 20; x <= 22; x++) set(x, 2, 1);
+      // Doors through furniture
+      set(9, 3, 0); set(19, 5, 0);
+      obj(2, 5, 12);
+      // Objects all around furniture and corners
+      obj(3, 2, 2);   obj(4, 7, 2);     obj(6, 5, 15);   obj(11, 2, 17);
+      obj(13, 7, 2);  obj(15, 3, 20);   obj(18, 6, 15);  obj(21, 2, 17);
+      obj(24, 7, 2);  obj(26, 3, 19);   obj(28, 5, 21);  obj(3, 6, 11);
+      obj(7, 3, 22);  obj(14, 6, 23);   obj(22, 4, 24);  obj(29, 7, 12);
+      set(30, 5, 5);
       break;
     }
 
     // ── ZONE 3: Bathroom ────────────────────────────────────────────────────
-    // Grid of six small rooms with connecting doors.
+    // Grid of small rooms with objects in each
     case 3: {
-      // Outer shell
-      carve(1, 1, 58, 28);
-      // Interior walls forming 2-row × 3-col grid
-      for (let x = 7; x <= 55; x++) set(x, 3, 1); // horizontal divider
-      for (let x = 7; x <= 55; x++) set(x, 6, 1); // second horizontal
-      for (const cx of [9, 17]) {
+      carve(1, 1, 30, 8);
+      // Interior walls forming grid
+      for (let x = 8; x <= 28; x++) set(x, 3, 1);
+      for (let x = 8; x <= 28; x++) set(x, 6, 1);
+      for (const cx of [10, 18, 25]) {
         for (let y = 1; y <= 8; y++) set(cx, y, 1);
       }
-      // Doors through dividers
-      door(5, 3);  door(13, 3);  door(22, 3);
-      door(5, 6);  door(13, 6);  door(22, 6);
-      door(9, 2);  door(9, 5);   door(9, 7);
-      door(17, 2); door(17, 5);  door(17, 7);
-      obj(2, 1, 12);
-      obj(3, 2, 2);   obj(11, 7, 2);  obj(20, 4, 2);
-      obj(7, 7, 15);  obj(15, 2, 15);
-      obj(4, 7, 11);  // mirror
-      obj(18, 7, 23); // medicine cabinet
-      obj(6, 5, 18);  // acid pool
-      set(58, 4, 5);
+      // Doors
+      door(9, 3);  door(17, 3);  door(24, 3);
+      door(9, 6);  door(17, 6);  door(24, 6);
+      door(10, 2); door(10, 5);  door(10, 7);
+      door(18, 2); door(18, 5);  door(18, 7);
+      door(25, 2); door(25, 5);  door(25, 7);
+      obj(2, 5, 12);
+      // Objects in each room
+      obj(3, 2, 2);   obj(5, 7, 2);     obj(12, 2, 15);  obj(14, 7, 15);
+      obj(20, 2, 17); obj(22, 7, 17);   obj(27, 2, 2);   obj(29, 7, 2);
+      obj(4, 4, 11);  obj(13, 5, 20);   obj(21, 4, 21);  obj(28, 5, 22);
+      obj(6, 3, 23);  obj(15, 6, 24);   obj(23, 3, 19);
+      set(30, 5, 5);
       break;
     }
 
     // ── ZONE 4: Kitchen ─────────────────────────────────────────────────────
-    // Central counter-island with perimeter ring corridor.
+    // Central counter-island with objects around perimeter
     case 4: {
-      carve(1, 1, 58, 28);
+      carve(1, 1, 30, 8);
       // Central island
-      for (let x = 7; x <= 55; x++) for (let y = 3; y <= 6; y++) set(x, y, 1);
-      // Island pass-throughs (counter gaps)
-      carve(12, 3, 12, 3); carve(17, 3, 17, 3);
-      carve(10, 5, 10, 5); carve(19, 5, 19, 5);
-      obj(2, 1, 12);
-      obj(3, 5, 2);   obj(24, 3, 2);
-      obj(5, 2, 17);  obj(22, 7, 17);
-      obj(7, 7, 15);  obj(24, 8, 15);
-      obj(21, 1, 19); // ritual circle
-      obj(4, 7, 18);  // acid pool
-      obj(14, 1, 22); // cracked floor
-      if (zoneIndex >= 4) set(13, 4, 9); // locked tile
-      set(58, 7, 5);
+      for (let x = 10; x <= 22; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      // Island pass-throughs
+      set(13, 3, 0); set(17, 3, 0); set(20, 5, 0);
+      obj(2, 5, 12);
+      // Objects around island and edges
+      obj(3, 2, 2);   obj(4, 7, 2);     obj(6, 3, 15);   obj(8, 6, 15);
+      obj(10, 2, 17); obj(12, 7, 17);   obj(22, 2, 2);   obj(24, 7, 2);
+      obj(26, 3, 20); obj(28, 6, 20);   obj(5, 5, 21);   obj(15, 6, 19);
+      obj(25, 4, 22); obj(7, 2, 23);    obj(18, 7, 24);  obj(29, 3, 12);
+      set(30, 5, 5);
       break;
     }
 
     // ── ZONE 5: Storage Room ────────────────────────────────────────────────
-    // Maze with dead ends — winding path to exit.
+    // Maze with objects in dead ends
     case 5: {
-      // Start with all walls, carve maze corridors
-      carve(1, 1, 2, 8);              // left spine
-      carve(1, 1, 10, 2);             // top branch
-      carve(10, 1, 10, 5);            // drop
-      carve(5, 4, 10, 4);             // horizontal arm
-      carve(5, 4, 5, 8);              // left dead-end drop
-      carve(1, 7, 5, 8);              // bottom-left room
-      carve(10, 4, 18, 4);            // center spine
-      carve(14, 1, 18, 4);            // upper right room
-      carve(14, 4, 14, 8);            // drop to lower right
-      carve(14, 7, 22, 8);            // lower passage
-      carve(18, 5, 18, 8);            // connecting drop
-      carve(18, 5, 26, 5);            // approach to exit
-      carve(22, 1, 26, 5);            // right-side room
-      obj(2, 1, 12);
-      obj(3, 7, 2);   obj(16, 2, 2);  obj(25, 2, 2);
-      obj(11, 4, 6);  obj(20, 7, 15);
-      obj(6, 7, 17);  obj(24, 3, 17);
-      obj(12, 4, 20); // vent
-      obj(19, 8, 22); // cracked floor
-      set(58, 5, 5);
+      carve(1, 1, 2, 8);
+      carve(1, 1, 10, 2);
+      carve(10, 1, 10, 4);
+      carve(5, 4, 15, 5);
+      carve(15, 3, 15, 7);
+      carve(10, 7, 25, 8);
+      carve(25, 5, 25, 8);
+      carve(20, 5, 30, 6);
+      carve(20, 3, 20, 5);
+      carve(25, 1, 30, 2);
+      obj(2, 5, 12);
+      // Objects in dead ends and corners
+      obj(8, 2, 2);   obj(13, 5, 15);   obj(17, 7, 17);  obj(23, 8, 2);
+      obj(28, 2, 20); obj(5, 6, 21);    obj(12, 3, 22);  obj(19, 4, 23);
+      obj(27, 5, 24); obj(4, 3, 19);    obj(9, 7, 11);   obj(16, 2, 2);
+      obj(22, 6, 15); obj(29, 7, 12);
+      set(30, 5, 5);
       break;
     }
 
-    // ── ZONE 6: Library / Office ────────────────────────────────────────────
-    // Bookshelf rows create parallel reading corridors.
+    // ── ZONE 6: Library ─────────────────────────────────────────────────────
+    // Bookshelf rows with objects between shelves
     case 6: {
-      carve(1, 1, 58, 28);
-      // Shelf walls (horizontal) — leave 1-tile reading corridor between
-      for (let x = 7; x <= 55; x++) {
-        set(x, 3, 1);
-        set(x, 5, 1);
-        set(x, 7, 1);
-      }
-      // Access gaps in each shelf row
-      for (const [gx, row] of [[5,3],[10,3],[16,3],[22,3],[7,5],[14,5],[21,5],[6,7],[13,7],[20,7]]) {
-        set(gx, row, 0);
-      }
-      obj(2, 1, 12);
-      obj(2, 8, 12);   // safe tile at bottom — library safe room
-      obj(3, 4, 2);    obj(19, 6, 2);
-      obj(12, 2, 17);  obj(18, 8, 17);
-      obj(24, 4, 15);  obj(8, 8, 15);
-      obj(3, 6, 20);   // vent
-      obj(25, 8, 23);  // medicine cabinet
-      if (zoneIndex >= 7) set(22, 4, 9);
-      set(58, 6, 5);
+      carve(1, 1, 30, 8);
+      // Bookshelf rows
+      for (let x = 5; x <= 28; x++) set(x, 2, 1);
+      for (let x = 5; x <= 28; x++) set(x, 5, 1);
+      for (let x = 5; x <= 28; x++) set(x, 8, 1);
+      // Gaps in shelves
+      set(10, 2, 0); set(18, 2, 0); set(25, 2, 0);
+      set(8, 5, 0);  set(16, 5, 0); set(23, 5, 0);
+      set(12, 8, 0); set(20, 8, 0); set(27, 8, 0);
+      obj(2, 5, 12);
+      // Books and objects everywhere
+      obj(3, 3, 2);   obj(4, 6, 2);     obj(6, 4, 15);   obj(9, 7, 15);
+      obj(11, 3, 17); obj(14, 6, 17);   obj(17, 3, 2);   obj(20, 6, 2);
+      obj(23, 3, 20); obj(26, 6, 20);   obj(29, 4, 21);  obj(5, 7, 22);
+      obj(13, 4, 23); obj(21, 7, 24);   obj(28, 3, 19);  obj(7, 5, 11);
+      obj(15, 3, 2);  obj(24, 6, 12);
+      set(30, 5, 5);
       break;
     }
 
     // ── ZONE 7: Bedroom ─────────────────────────────────────────────────────
-    // Split top/bottom by wall — only two narrow crossing points.
+    // Bed and furniture with objects scattered around
     case 7: {
-      carve(1, 1, 26, 4);             // upper half
-      carve(1, 5, 26, 8);             // lower half
-      // Wall dividing them (row 4-5 boundary already carved)
-      // Block most of row 4 → 5 connection with walls
-      for (let x = 7; x <= 55; x++) {
-        if (x !== 8 && x !== 18) {     // two crossing points only
-          set(x, 4, 1);
-          set(x, 5, 1);
-        }
-      }
-      // Rooms within halves
-      for (const [x, y] of [[6,1],[6,2],[14,2],[22,1]]) {
-        for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 3; dx++) set(x+dx, y+dy, 1);
-        set(x+1, y, 0); // doorway
-      }
-      obj(2, 1, 12);
-      obj(3, 3, 2);    obj(20, 7, 2);  obj(10, 6, 2);
-      obj(12, 1, 17);  obj(5, 7, 17);
-      obj(24, 7, 15);  obj(3, 1, 15);
-      obj(11, 7, 10);  // hallucination
-      obj(20, 2, 11);  // mirror
-      obj(22, 8, 22);  // cracked floor
-      obj(9, 2, 25);   // chess computer — small desk PC in upper bedroom alcove
-      if (zoneIndex >= 7) set(22, 4, 9);
-      set(58, 4, 5);
+      carve(1, 1, 30, 8);
+      // Bed and large furniture
+      for (let x = 8; x <= 14; x++) for (let y = 2; y <= 4; y++) set(x, y, 1);
+      for (let x = 20; x <= 26; x++) for (let y = 5; y <= 7; y++) set(x, y, 1);
+      for (let x = 5; x <= 7; x++) set(x, 6, 1);
+      for (let x = 25; x <= 28; x++) set(x, 2, 1);
+      // Gaps
+      set(11, 2, 0); set(23, 5, 0);
+      obj(2, 5, 12);
+      // Personal items and objects all around
+      obj(3, 3, 2);   obj(4, 7, 2);     obj(6, 4, 15);   obj(9, 6, 15);
+      obj(12, 3, 17); obj(15, 7, 17);   obj(18, 3, 2);   obj(21, 6, 2);
+      obj(24, 3, 20); obj(27, 7, 20);   obj(3, 6, 21);   obj(16, 4, 22);
+      obj(19, 7, 23); obj(29, 4, 24);   obj(5, 3, 19);   obj(10, 7, 11);
+      obj(14, 5, 2);  obj(22, 3, 12);   obj(28, 6, 2);
+      set(30, 5, 5);
       break;
     }
 
-    // ── ZONE 8: Laundry Room ────────────────────────────────────────────────
-    // 3×3 chamber grid — industrial, claustrophobic.
-    case 8: {
-      // Three columns of three chambers each
-      carve(1, 1, 7, 3);  carve(1, 5, 7, 7);
-      carve(10, 1, 16, 3); carve(10, 5, 16, 7);
-      carve(19, 1, 25, 3); carve(19, 5, 25, 7);
-      // Vertical connectors
-      carve(4, 3, 4, 5);   carve(13, 3, 13, 5);  carve(22, 3, 22, 5);
-      // Horizontal connectors
-      carve(7, 2, 10, 2);  carve(7, 6, 10, 6);
-      carve(16, 2, 19, 2); carve(16, 6, 19, 6);
-      // Small alcoves
-      carve(1, 8, 3, 8);   carve(24, 8, 26, 8);
-      door(7, 2); door(16, 2); door(7, 6); door(16, 6);
-      obj(2, 1, 12);
-      obj(3, 6, 2);   obj(21, 2, 2);
-      obj(6, 3, 17);  obj(20, 6, 17);
-      obj(12, 2, 21); // static TV
-      obj(23, 6, 23); // medicine cabinet
-      obj(5, 8, 20);  // vent
-      obj(14, 5, 18); // acid pool
-      set(58, 2, 5);
+    // ── DEFAULT / Later Zones: Dense maze with maximum objects ─────────────
+    default: {
+      carve(1, 1, 30, 8);
+      // Dense obstacle pattern
+      for (let x = 4; x <= 28; x += 4) {
+        set(x, 2, 1); set(x, 4, 1); set(x, 6, 1);
+      }
+      for (let y = 3; y <= 7; y += 2) {
+        set(8, y, 1); set(16, y, 1); set(24, y, 1);
+      }
+      obj(2, 5, 12);
+      // Maximum objects in every available space
+      obj(3, 2, 2);   obj(3, 7, 2);   obj(5, 4, 15);   obj(7, 3, 17);
+      obj(9, 6, 2);   obj(11, 2, 20); obj(13, 5, 2);   obj(15, 7, 15);
+      obj(17, 3, 17); obj(19, 6, 2);  obj(21, 2, 21);  obj(23, 5, 22);
+      obj(25, 7, 2);  obj(27, 3, 23); obj(29, 6, 24);  obj(6, 5, 19);
+      obj(10, 3, 11); obj(14, 7, 2);  obj(18, 4, 12);  obj(22, 6, 2);
+      obj(26, 2, 20); obj(30, 4, 2);
+      set(30, 5, 5);
       break;
     }
+  }
 
-    // ── ZONE 9: Attic ───────────────────────────────────────────────────────
-    // Central hub + spoke corridors. Very cramped; blocked mid spine.
+  return map;
+}
     case 9: {
       carve(1, 1, 4, 8);             // left spine
       carve(1, 4, 26, 5);           // center spoke

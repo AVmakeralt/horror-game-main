@@ -3,17 +3,17 @@
 
 export const GAMEPLAY_CONFIG = {
   // Movement settings
-  FLOOR_ROW: 15,  // Center of the new larger map (30 rows total)
+  FLOOR_ROW: 5,  // Center of the 32x10 map (rows 1-9, center is 5)
   BASE_MOVE_COOLDOWN: 4,
   MIN_MOVE_COOLDOWN: 2,
   SPRINT_BONUS: 2,
   VISUAL_SMOOTHING: 0.35,
   
-  // Map bounds - updated for larger map
+  // Map bounds - optimized for MCTS (32x10)
   MIN_X: 1,
-  MAX_X: 58,  // Updated from 26 to 58 for larger map
+  MAX_X: 31,  // 32 wide (1-31)
   MIN_Y: 1,
-  MAX_Y: 28,  // New Y bounds for larger map
+  MAX_Y: 9,   // 10 tall (1-9)
   
   // Hide settings
   HIDE_ANIMATION_DURATION: 14,
