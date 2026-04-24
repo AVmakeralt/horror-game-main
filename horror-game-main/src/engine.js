@@ -341,8 +341,8 @@ const TOTAL_KEYS = KEY_LOCATIONS.length; // 8
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildZoneMap(zoneIndex) {
-  const w = 28;
-  const h = 10;
+  const w = 60;  // Increased from 28 to 60 for a much larger map
+  const h = 30;  // Increased from 10 to 30 for a much larger map
   const map = new Array(w * h).fill(1);
   const set  = (x, y, t) => { if (x >= 0 && y >= 0 && x < w && y < h) map[y * w + x] = t; };
   const carve = (x0, y0, x1, y1) => {
@@ -358,53 +358,80 @@ function buildZoneMap(zoneIndex) {
     // ── ZONE 0: Entrance Hall ──────────────────────────────────────────────
     // Wide open central spine + two alcoves each side.
     case 0: {
-      carve(1, 1, 26, 8);               // fully open hall
-      // Pillar islands break up the space
-      for (const [px, py] of [[6,2],[6,3],[11,6],[11,7],[20,2],[20,3],[20,7]]) set(px, py, 1);
+      carve(1, 1, 58, 28);               // fully open hall
+      // Pillar islands break up the space - many more pillars
+      for (const [px, py] of [
+        [8,4],[8,6],[8,10],[8,12],[8,16],[8,18],[8,22],[8,24],
+        [15,3],[15,7],[15,11],[15,15],[15,19],[15,23],[15,27],
+        [22,4],[22,8],[22,12],[22,16],[22,20],[22,24],
+        [30,3],[30,7],[30,11],[30,15],[30,19],[30,23],[30,27],
+        [38,4],[38,8],[38,12],[38,16],[38,20],[38,24],
+        [45,3],[45,7],[45,11],[45,15],[45,19],[45,23],[45,27],
+        [52,4],[52,8],[52,12],[52,16],[52,20],[52,24]
+      ]) set(px, py, 1);
       obj(2, 1, 12);                    // safe spawn tile
-      obj(2, 3, 2);   obj(9, 6, 2);    // hide spots
-      obj(4, 1, 15);  obj(13, 8, 15);  // drawers
-      obj(22, 4, 17); obj(16, 2, 17);  // notes
-      obj(6, 8, 19);                    // ritual circle
-      set(26, 5, 5);                    // exit
+      // Many more hide spots around the room
+      obj(5, 5, 2);   obj(12, 8, 2);    obj(18, 3, 2);   obj(25, 12, 2);
+      obj(32, 6, 2);  obj(38, 15, 2);   obj(45, 9, 2);   obj(52, 20, 2);
+      obj(10, 25, 2); obj(20, 22, 2);   obj(35, 25, 2);  obj(48, 26, 2);
+      // Drawers and interactables
+      obj(4, 1, 15);  obj(13, 1, 15);   obj(22, 1, 15);  obj(31, 1, 15);
+      obj(40, 28, 15); obj(49, 28, 15); obj(56, 28, 15);
+      // Notes scattered around
+      obj(22, 4, 17); obj(16, 2, 17);   obj(30, 10, 17); obj(42, 8, 17);
+      obj(50, 15, 17); obj(35, 20, 17); obj(25, 25, 17);
+      // Ritual circles and special objects
+      obj(6, 26, 19); obj(28, 14, 19);  obj(55, 5, 19);
+      obj(18, 18, 20); obj(40, 22, 20); // vents
+      obj(12, 12, 21); obj(45, 3, 21);  // static TVs
+      obj(8, 20, 11);  obj(35, 8, 11);  // mirrors
+      set(58, 14, 5);                    // exit
       break;
     }
 
     // ── ZONE 1: The Corridor ───────────────────────────────────────────────
-    // Two long parallel corridors with three vertical shafts.
+    // Two long parallel corridors with multiple vertical shafts.
     case 1: {
-      carve(1, 1, 26, 2);               // top corridor
-      carve(1, 7, 26, 8);               // bottom corridor
-      carve(1, 3, 1, 6);               // left shaft
-      carve(9, 3, 9, 6);               // mid-left shaft
-      carve(17, 3, 17, 6);             // mid-right shaft
-      carve(25, 3, 25, 6);             // right shaft
-      // Small alcoves off top corridor
-      carve(5, 1, 7, 3);
-      carve(13, 1, 15, 3);
+      carve(1, 1, 58, 6);                // top corridor
+      carve(1, 23, 58, 28);              // bottom corridor
+      // Multiple vertical shafts connecting them
+      for (let sx = 5; sx <= 55; sx += 10) {
+        carve(sx, 6, sx, 23);
+      }
+      // Alcoves off top corridor
+      carve(8, 1, 12, 3); carve(20, 1, 24, 3); carve(35, 1, 39, 3);
+      carve(48, 1, 52, 3);
       // Alcoves off bottom corridor
-      carve(4, 6, 6, 8);
-      carve(12, 6, 14, 8);
-      carve(20, 6, 22, 8);
+      carve(5, 25, 9, 28); carve(18, 25, 22, 28); carve(30, 25, 34, 28);
+      carve(42, 25, 46, 28); carve(53, 25, 57, 28);
       obj(2, 1, 12);
-      obj(6, 2, 2);   obj(21, 7, 2);
-      obj(14, 1, 17); obj(5, 8, 17);
-      obj(23, 2, 15);
-      obj(10, 4, 21); // static TV in shaft
-      door(9, 3);  door(9, 6);
-      door(17, 3); door(17, 6);
-      set(26, 1, 5);
+      // Hide spots in alcoves and shafts
+      obj(10, 2, 2);   obj(22, 2, 2);    obj(37, 2, 2);   obj(50, 2, 2);
+      obj(7, 26, 2);   obj(20, 26, 2);   obj(32, 26, 2);  obj(44, 26, 2);
+      obj(55, 26, 2);  obj(5, 14, 2);    obj(25, 14, 2);  obj(45, 14, 2);
+      obj(14, 1, 17);  obj(35, 28, 17);  obj(52, 1, 17);
+      obj(23, 2, 15);  obj(40, 26, 15);
+      // Static TVs in shafts
+      obj(15, 14, 21); obj(35, 14, 21);  obj(55, 14, 21);
+      // Doors at shaft entrances
+      door(5, 6);  door(5, 23);
+      door(15, 6); door(15, 23);
+      door(25, 6); door(25, 23);
+      door(35, 6); door(35, 23);
+      door(45, 6); door(45, 23);
+      door(55, 6); door(55, 23);
+      set(58, 1, 5);
       break;
     }
 
     // ── ZONE 2: Living Room ─────────────────────────────────────────────────
     // Open plan interrupted by furniture islands.
     case 2: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Three furniture-island walls
-      for (let x = 7; x <= 9;  x++) for (let y = 2; y <= 5; y++) set(x, y, 1);
-      for (let x = 14; x <= 16; x++) for (let y = 4; y <= 7; y++) set(x, y, 1);
-      for (let x = 21; x <= 23; x++) for (let y = 1; y <= 3; y++) set(x, y, 1);
+      for (let x = 7; x <= 55;  x++) for (let y = 2; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 4; y <= 7; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 1; y <= 3; y++) set(x, y, 1);
       // Poke doors through each island
       set(8, 2, 0); set(15, 4, 0); set(22, 2, 0);
       obj(2, 1, 12);
@@ -413,7 +440,7 @@ function buildZoneMap(zoneIndex) {
       obj(5, 1, 19);  // ritual circle
       obj(24, 6, 20); // vent
       obj(12, 3, 21); // static TV
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
@@ -421,10 +448,10 @@ function buildZoneMap(zoneIndex) {
     // Grid of six small rooms with connecting doors.
     case 3: {
       // Outer shell
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Interior walls forming 2-row × 3-col grid
-      for (let x = 1; x <= 26; x++) set(x, 3, 1); // horizontal divider
-      for (let x = 1; x <= 26; x++) set(x, 6, 1); // second horizontal
+      for (let x = 7; x <= 55; x++) set(x, 3, 1); // horizontal divider
+      for (let x = 7; x <= 55; x++) set(x, 6, 1); // second horizontal
       for (const cx of [9, 17]) {
         for (let y = 1; y <= 8; y++) set(cx, y, 1);
       }
@@ -439,16 +466,16 @@ function buildZoneMap(zoneIndex) {
       obj(4, 7, 11);  // mirror
       obj(18, 7, 23); // medicine cabinet
       obj(6, 5, 18);  // acid pool
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 4: Kitchen ─────────────────────────────────────────────────────
     // Central counter-island with perimeter ring corridor.
     case 4: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Central island
-      for (let x = 10; x <= 19; x++) for (let y = 3; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 3; y <= 6; y++) set(x, y, 1);
       // Island pass-throughs (counter gaps)
       carve(12, 3, 12, 3); carve(17, 3, 17, 3);
       carve(10, 5, 10, 5); carve(19, 5, 19, 5);
@@ -460,7 +487,7 @@ function buildZoneMap(zoneIndex) {
       obj(4, 7, 18);  // acid pool
       obj(14, 1, 22); // cracked floor
       if (zoneIndex >= 4) set(13, 4, 9); // locked tile
-      set(26, 7, 5);
+      set(58, 7, 5);
       break;
     }
 
@@ -487,16 +514,16 @@ function buildZoneMap(zoneIndex) {
       obj(6, 7, 17);  obj(24, 3, 17);
       obj(12, 4, 20); // vent
       obj(19, 8, 22); // cracked floor
-      set(26, 5, 5);
+      set(58, 5, 5);
       break;
     }
 
     // ── ZONE 6: Library / Office ────────────────────────────────────────────
     // Bookshelf rows create parallel reading corridors.
     case 6: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Shelf walls (horizontal) — leave 1-tile reading corridor between
-      for (let x = 2; x <= 24; x++) {
+      for (let x = 7; x <= 55; x++) {
         set(x, 3, 1);
         set(x, 5, 1);
         set(x, 7, 1);
@@ -513,7 +540,7 @@ function buildZoneMap(zoneIndex) {
       obj(3, 6, 20);   // vent
       obj(25, 8, 23);  // medicine cabinet
       if (zoneIndex >= 7) set(22, 4, 9);
-      set(26, 6, 5);
+      set(58, 6, 5);
       break;
     }
 
@@ -524,7 +551,7 @@ function buildZoneMap(zoneIndex) {
       carve(1, 5, 26, 8);             // lower half
       // Wall dividing them (row 4-5 boundary already carved)
       // Block most of row 4 → 5 connection with walls
-      for (let x = 4; x <= 24; x++) {
+      for (let x = 7; x <= 55; x++) {
         if (x !== 8 && x !== 18) {     // two crossing points only
           set(x, 4, 1);
           set(x, 5, 1);
@@ -544,7 +571,7 @@ function buildZoneMap(zoneIndex) {
       obj(22, 8, 22);  // cracked floor
       obj(9, 2, 25);   // chess computer — small desk PC in upper bedroom alcove
       if (zoneIndex >= 7) set(22, 4, 9);
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
@@ -570,7 +597,7 @@ function buildZoneMap(zoneIndex) {
       obj(23, 6, 23); // medicine cabinet
       obj(5, 8, 20);  // vent
       obj(14, 5, 18); // acid pool
-      set(26, 2, 5);
+      set(58, 2, 5);
       break;
     }
 
@@ -589,15 +616,15 @@ function buildZoneMap(zoneIndex) {
       carve(8, 5, 8, 8);            // lower-left drop
       carve(19, 5, 19, 8);          // lower-right drop
       // Blocked center tape (late-game pressure)
-      for (let x = 10; x <= 17; x += 1) set(x, 4, 8);
-      for (let x = 10; x <= 17; x += 1) set(x, 5, 8);
+      for (let x = 7; x <= 55; x += 1) set(x, 4, 8);
+      for (let x = 7; x <= 55; x += 1) set(x, 5, 8);
       obj(2, 1, 12);
       obj(3, 6, 2);   obj(24, 3, 2);
       obj(7, 1, 17);  obj(21, 8, 17);
       obj(6, 4, 15);  obj(22, 5, 15);
       obj(11, 1, 13); obj(16, 8, 13); // tiny hazards
       obj(4, 4, 19);  // ritual circle
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
@@ -629,18 +656,18 @@ function buildZoneMap(zoneIndex) {
       obj(17, 6, 19); // ritual circle
       obj(24, 3, 16); // fake exit
       obj(4, 6, 13);  // tiny hazard
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 11: Backyard / Exit ─────────────────────────────────────────────
     // Open, but three wall-islands block direct path.  True exit visible.
     case 11: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Three obstacle islands
-      for (let x = 6; x <= 8;   x++) for (let y = 2; y <= 7; y++) set(x, y, 1);
-      for (let x = 13; x <= 15; x++) for (let y = 1; y <= 5; y++) set(x, y, 1);
-      for (let x = 20; x <= 22; x++) for (let y = 3; y <= 8; y++) set(x, y, 1);
+      for (let x = 7; x <= 55;   x++) for (let y = 2; y <= 7; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 1; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 3; y <= 8; y++) set(x, y, 1);
       // Gaps through islands
       set(7, 7, 0);   // bottom gap island 1
       set(14, 6, 0);  // bottom gap island 2
@@ -651,18 +678,18 @@ function buildZoneMap(zoneIndex) {
       obj(10, 3, 22); // cracked floor
       obj(18, 5, 13); // tiny hazard
       obj(24, 1, 16); // fake exit
-      set(26, 4, 5);   // true exit
+      set(58, 4, 5);   // true exit
       break;
     }
 
     // ── ZONE 12: Greenhouse ─────────────────────────────────────────────────
     // Plant maze with looping mirrors
     case 12: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Plant islands forming maze
-      for (let x = 5; x <= 7;  x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
-      for (let x = 12; x <= 14; x++) for (let y = 1; y <= 4; y++) set(x, y, 1);
-      for (let x = 18; x <= 20; x++) for (let y = 5; y <= 7; y++) set(x, y, 1);
+      for (let x = 7; x <= 55;  x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 1; y <= 4; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 5; y <= 7; y++) set(x, y, 1);
       // Narrow passages
       set(6, 4, 0); set(13, 3, 0); set(19, 6, 0);
       obj(2, 1, 12);
@@ -671,35 +698,35 @@ function buildZoneMap(zoneIndex) {
       obj(8, 5, 11);  // looping mirror
       obj(21, 3, 11); // looping mirror
       obj(12, 8, 20); // vent
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 13: Garage ─────────────────────────────────────────────────────
     // Large open space with car obstacles
     case 13: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Car obstacle (large block)
-      for (let x = 10; x <= 16; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
       // Shelving units
-      for (let x = 3; x <= 5; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
-      for (let x = 22; x <= 24; x++) for (let y = 1; y <= 7; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 1; y <= 7; y++) set(x, y, 1);
       obj(2, 1, 12);
       obj(6, 4, 2);   obj(18, 4, 2);  obj(25, 3, 2);
       obj(8, 1, 15);  obj(20, 8, 15);
       obj(13, 4, 6);  // moved furniture (car)
       obj(7, 7, 17);  obj(21, 2, 17);
       obj(15, 8, 22); // cracked floor
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 14: Wine Cellar ────────────────────────────────────────────────
     // Grid of wine racks with secret passages
     case 14: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Wine rack grid
-      for (let x = 4; x <= 24; x += 4) {
+      for (let x = 7; x <= 55; x += 4) {
         for (let y = 2; y <= 7; y += 2) {
           for (let dx = 0; dx < 2; dx++) for (let dy = 0; dy < 1; dy++) set(x + dx, y + dy, 1);
         }
@@ -712,38 +739,38 @@ function buildZoneMap(zoneIndex) {
       obj(10, 8, 17); obj(20, 7, 17);
       obj(12, 3, 19); // ritual circle
       obj(8, 6, 23);  // medicine cabinet
-      set(26, 5, 5);
+      set(58, 5, 5);
       break;
     }
 
     // ── ZONE 15: Chapel ──────────────────────────────────────────────────────
     // Religious space with pews and altar
     case 15: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Pew rows
-      for (let x = 5; x <= 10; x++) { set(x, 3, 1); set(x, 5, 1); set(x, 7, 1); }
-      for (let x = 17; x <= 22; x++) { set(x, 3, 1); set(x, 5, 1); set(x, 7, 1); }
+      for (let x = 7; x <= 55; x++) { set(x, 3, 1); set(x, 5, 1); set(x, 7, 1); }
+      for (let x = 7; x <= 55; x++) { set(x, 3, 1); set(x, 5, 1); set(x, 7, 1); }
       // Altar platform
-      for (let x = 11; x <= 16; x++) for (let y = 1; y <= 2; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 1; y <= 2; y++) set(x, y, 1);
       obj(2, 1, 12);
       obj(3, 4, 2);   obj(24, 6, 2);  obj(13, 8, 2);
       obj(7, 2, 17);  obj(20, 1, 17);
       obj(14, 1, 19); // ritual circle (altar)
       obj(13, 4, 10); // hallucination
       obj(9, 6, 11);  // mirror (confessional)
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 16: Dungeon ────────────────────────────────────────────────────
     // Torture chamber with cells
     case 16: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Cell blocks
-      for (let x = 6; x <= 9; x++) for (let y = 2; y <= 3; y++) set(x, y, 1);
-      for (let x = 6; x <= 9; x++) for (let y = 5; y <= 6; y++) set(x, y, 1);
-      for (let x = 18; x <= 21; x++) for (let y = 2; y <= 3; y++) set(x, y, 1);
-      for (let x = 18; x <= 21; x++) for (let y = 5; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 3; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 5; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 3; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 5; y <= 6; y++) set(x, y, 1);
       // Cell doors
       set(7, 4, 14); set(19, 4, 14);
       obj(2, 1, 12);
@@ -752,77 +779,77 @@ function buildZoneMap(zoneIndex) {
       obj(10, 2, 17); obj(16, 7, 17);
       obj(13, 6, 13); obj(14, 6, 13); // tiny hazards
       obj(8, 8, 18);  // acid pool
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 17: Observatory ────────────────────────────────────────────────
     // Circular room with telescope
     case 17: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Central telescope platform
-      for (let x = 12; x <= 15; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
       // Observation balcony
-      for (let x = 2; x <= 9; x++) set(x, 1, 1);
-      for (let x = 18; x <= 25; x++) set(x, 1, 1);
+      for (let x = 7; x <= 55; x++) set(x, 1, 1);
+      for (let x = 7; x <= 55; x++) set(x, 1, 1);
       obj(2, 1, 12);
       obj(4, 5, 2);   obj(22, 6, 2);  obj(13, 8, 2);
       obj(6, 3, 17);  obj(20, 2, 17);
       obj(14, 4, 21); // telescope (static TV)
       obj(10, 7, 11); // mirror
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 18: Nursery ──────────────────────────────────────────────────────
     // Creepy nursery with toys
     case 18: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Crib area
-      for (let x = 10; x <= 17; x++) for (let y = 1; y <= 2; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 1; y <= 2; y++) set(x, y, 1);
       // Toy chest
-      for (let x = 5; x <= 7; x++) for (let y = 6; y <= 7; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 6; y <= 7; y++) set(x, y, 1);
       // Rocking chair area
-      for (let x = 20; x <= 22; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
       obj(2, 1, 12);
       obj(3, 4, 2);   obj(18, 7, 2);  obj(24, 4, 2);
       obj(8, 2, 15);  obj(23, 6, 15);
       obj(14, 1, 17); obj(6, 8, 17);
       obj(12, 4, 10); // hallucination
       obj(21, 4, 11); // mirror
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 19: Ballroom ────────────────────────────────────────────────────
     // Grand dance floor with chandeliers
     case 19: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Pillars
       for (const [px, py] of [[7,3],[7,5],[14,4],[21,3],[21,5]]) set(px, py, 1);
       // Stage area
-      for (let x = 2; x <= 5; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
       // Balcony
-      for (let x = 22; x <= 25; x++) set(x, 1, 1);
+      for (let x = 7; x <= 55; x++) set(x, 1, 1);
       obj(2, 1, 12);
       obj(6, 4, 2);   obj(16, 6, 2);  obj(24, 5, 2);
       obj(9, 2, 17);  obj(18, 7, 17);
       obj(14, 3, 21); // chandelier (static TV)
       obj(10, 8, 11); // mirror
       obj(20, 2, 19); // ritual circle
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 20: Laboratory ─────────────────────────────────────────────────
     // Science lab with experiments
     case 20: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Lab benches
-      for (let x = 6; x <= 10; x++) for (let y = 2; y <= 3; y++) set(x, y, 1);
-      for (let x = 17; x <= 21; x++) for (let y = 5; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 3; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 5; y <= 6; y++) set(x, y, 1);
       // Containment chamber
-      for (let x = 12; x <= 15; x++) for (let y = 4; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 4; y <= 5; y++) set(x, y, 1);
       obj(2, 1, 12);
       obj(4, 5, 2);   obj(13, 7, 2);  obj(23, 3, 2);
       obj(8, 4, 15);  obj(19, 2, 15);
@@ -830,17 +857,17 @@ function buildZoneMap(zoneIndex) {
       obj(11, 2, 17); obj(20, 7, 17);
       obj(6, 7, 22);  // cracked floor
       obj(16, 3, 13); // tiny hazard
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 21: Catacombs ────────────────────────────────────────────────────
     // Underground tunnels with tombs
     case 21: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Tomb walls
-      for (let x = 5; x <= 8; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
-      for (let x = 19; x <= 22; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
       // Central passage
       carve(10, 3, 17, 5);
       // Side chambers
@@ -852,79 +879,79 @@ function buildZoneMap(zoneIndex) {
       obj(13, 4, 19); // ritual circle
       obj(8, 8, 11);  // mirror
       obj(22, 8, 22); // cracked floor
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 22: Clock Tower ─────────────────────────────────────────────────
     // Tower with gears and time anomalies
     case 22: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Gear structures
-      for (let x = 8; x <= 10; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
-      for (let x = 18; x <= 20; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
       // Clock face
-      for (let x = 12; x <= 15; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
       obj(2, 1, 12);
       obj(4, 4, 2);   obj(14, 7, 2);  obj(23, 5, 2);
       obj(6, 3, 17);  obj(21, 3, 17);
       obj(14, 4, 21); // clock mechanism (static TV)
       obj(10, 8, 11); // mirror (time reflection)
       obj(16, 2, 20); // vent
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 23: Fountain Room ───────────────────────────────────────────────
     // Central fountain with flowing water
     case 23: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Fountain base
-      for (let x = 11; x <= 16; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
       // Water channels
       carve(13, 1, 13, 2); carve(13, 6, 13, 8);
       carve(10, 4, 10, 4); carve(17, 4, 17, 4);
       // Decorative walls
-      for (let x = 4; x <= 7; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
-      for (let x = 20; x <= 23; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
       obj(2, 1, 12);
       obj(3, 4, 2);   obj(14, 7, 2);  obj(24, 4, 2);
       obj(5, 3, 15);  obj(21, 4, 15);
       obj(14, 4, 18); // fountain (acid pool trick)
       obj(9, 2, 17);  obj(18, 7, 17);
       obj(12, 8, 11); // mirror
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 24: Armory ──────────────────────────────────────────────────────
     // Weapon storage with racks
     case 24: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Weapon racks
-      for (let x = 5; x <= 8; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
-      for (let x = 19; x <= 22; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
       // Central display
-      for (let x = 12; x <= 15; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
       obj(2, 1, 12);
       obj(4, 4, 2);   obj(13, 7, 2);  obj(24, 4, 2);
       obj(6, 4, 15);  obj(20, 4, 15);
       obj(14, 4, 17); obj(10, 2, 17);
       obj(8, 8, 22);  // cracked floor
       obj(18, 1, 13); // tiny hazard
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 25: Overgrown Garden ─────────────────────────────────────────────
     // Dense vegetation with hidden paths
     case 25: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Dense vegetation blocks
-      for (let x = 3; x <= 7; x++) for (let y = 2; y <= 7; y++) set(x, y, 1);
-      for (let x = 10; x <= 14; x++) for (let y = 1; y <= 4; y++) set(x, y, 1);
-      for (let x = 10; x <= 14; x++) for (let y = 6; y <= 8; y++) set(x, y, 1);
-      for (let x = 20; x <= 24; x++) for (let y = 2; y <= 7; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 7; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 1; y <= 4; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 6; y <= 8; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 7; y++) set(x, y, 1);
       // Hidden paths
       set(5, 5, 0); set(12, 5, 0); set(22, 4, 0);
       obj(2, 1, 12);
@@ -933,19 +960,19 @@ function buildZoneMap(zoneIndex) {
       obj(12, 2, 19); // ritual circle
       obj(21, 7, 18); // acid pool
       obj(9, 8, 11);  // mirror
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 26: Hall of Mirrors ─────────────────────────────────────────────
     // Maze of mirrors with looping paths
     case 26: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Mirror walls
-      for (let x = 6; x <= 8; x++) for (let y = 2; y <= 6; y++) set(x, y, 11);
-      for (let x = 12; x <= 14; x++) for (let y = 1; y <= 3; y++) set(x, y, 11);
-      for (let x = 12; x <= 14; x++) for (let y = 5; y <= 7; y++) set(x, y, 11);
-      for (let x = 19; x <= 21; x++) for (let y = 2; y <= 6; y++) set(x, y, 11);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 11);
+      for (let x = 7; x <= 55; x++) for (let y = 1; y <= 3; y++) set(x, y, 11);
+      for (let x = 7; x <= 55; x++) for (let y = 5; y <= 7; y++) set(x, y, 11);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 11);
       // Gaps
       set(7, 4, 0); set(13, 4, 0); set(20, 4, 0);
       obj(2, 1, 12);
@@ -953,17 +980,17 @@ function buildZoneMap(zoneIndex) {
       obj(10, 2, 17); obj(18, 7, 17);
       obj(5, 8, 11);  obj(23, 1, 11);
       obj(15, 5, 10); // hallucination
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 27: Ice Cave ────────────────────────────────────────────────────
     // Frozen cavern with slippery paths
     case 27: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Ice formations
-      for (let x = 4; x <= 8; x++) for (let y = 2; y <= 5; y++) set(x, y, 1);
-      for (let x = 15; x <= 19; x++) for (let y = 4; y <= 7; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 4; y <= 7; y++) set(x, y, 1);
       // Cracked ice
       for (const [cx, cy] of [[10,3],[11,4],[12,5],[13,6],[14,7]]) set(cx, cy, 22);
       obj(2, 1, 12);
@@ -971,21 +998,21 @@ function buildZoneMap(zoneIndex) {
       obj(6, 3, 15);  obj(17, 5, 15);
       obj(10, 2, 17); obj(20, 8, 17);
       obj(13, 4, 18); // acid pool (water)
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 28: Research Chamber ───────────────────────────────────────────────
     // Lab-home hybrid with equipment and furniture
     case 28: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Lab equipment islands (instead of lava)
-      for (let x = 5; x <= 10; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
-      for (let x = 17; x <= 22; x++) for (let y = 4; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 4; y <= 6; y++) set(x, y, 1);
       // Home furniture platforms
-      for (let x = 2; x <= 4; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
-      for (let x = 12; x <= 15; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
-      for (let x = 23; x <= 25; x++) for (let y = 2; y <= 7; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 6; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 3; y <= 5; y++) set(x, y, 1);
+      for (let x = 7; x <= 55; x++) for (let y = 2; y <= 7; y++) set(x, y, 1);
       // Lab equipment (monitors, chemical stations)
       obj(2, 1, 12);
       obj(3, 4, 2);   obj(14, 4, 2);  obj(24, 5, 2);
@@ -995,14 +1022,14 @@ function buildZoneMap(zoneIndex) {
       obj(8, 2, 17); obj(20, 3, 17);
       obj(6, 5, 23); // medicine cabinet
       obj(16, 2, 19); // ritual circle (experiment setup)
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     // ── ZONE 29: The Void ─────────────────────────────────────────────────────
     // Empty space with floating platforms
     case 29: {
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       // Floating platforms (isolated islands)
       carve(2, 2, 4, 4); carve(2, 5, 4, 7);
       carve(8, 1, 11, 3); carve(8, 5, 11, 7);
@@ -1015,15 +1042,15 @@ function buildZoneMap(zoneIndex) {
       obj(6, 2, 10); obj(14, 2, 10); obj(22, 4, 10); // hallucinations
       obj(9, 6, 11); obj(17, 3, 11); // mirrors
       obj(13, 8, 19); // ritual circle
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
 
     default: {
       // Fallback — simple open room
-      carve(1, 1, 26, 8);
+      carve(1, 1, 58, 28);
       obj(2, 1, 12);
-      set(26, 4, 5);
+      set(58, 4, 5);
       break;
     }
   }
@@ -2049,7 +2076,7 @@ export function createGame(canvas) {
         const d = state.director;
         const candidates = [];
         for (let y = 2; y <= 8; y++) {
-          for (let x = 2; x <= 25; x++) {
+          for (let x = 7; x <= 55; x++) {
             if (tileAt(x, y) === 0 && (d.visitCounts[y * DIR_W + x] || 0) >= 3) {
               // Is there a door tile (14) adjacent?
               for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
@@ -2079,7 +2106,7 @@ export function createGame(canvas) {
       apply() {
         // Find a locked tile (9) or blocked tile (8), open it without player input.
         for (let y = 1; y <= 8; y++) {
-          for (let x = 2; x <= 25; x++) {
+          for (let x = 7; x <= 55; x++) {
             if (tileAt(x, y) === 9 || tileAt(x, y) === 8) {
               setTile(x, y, 0);
               state.director.ghostDoors.push({ x, y, was: 9, to: 0, ttl: 500 });
@@ -2185,7 +2212,7 @@ export function createGame(canvas) {
         let bestHide = null;
         let bestCount = 3;
         for (let y = 1; y <= 8; y++) {
-          for (let x = 1; x <= 26; x++) {
+          for (let x = 7; x <= 55; x++) {
             if (tileAt(x, y) === 2) { // hide spot
               const cnt = d.visitCounts[y * DIR_W + x] || 0;
               if (cnt > bestCount && isNavSafe(x, y)) {
@@ -2931,7 +2958,7 @@ export function createGame(canvas) {
     samplePlayerBehavior(false, nearStalkerPre); // pre-sample with tentative moved=false
 
     const wasHiding = state.player.hide;
-    const moved = stepPlayer({ player: state.player, keys: state.keys, tileAt, transformState: state.transformState, tick: state.tick });
+    const moved = stepPlayer({ player: state.player, keys: state.keys, tileAt, transformState: state.transformState, tick: state.tick, mapWidth: width, mapHeight: height });
 
     if (moved) spawnParticle(state.player.x, state.player.y, "dust");
 
